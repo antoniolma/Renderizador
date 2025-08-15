@@ -48,10 +48,13 @@ class GL:
         print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
         print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
-        # Exemplo:
-        pos_x = GL.width//2
-        pos_y = GL.height//2
-        gpu.GPU.draw_pixel([pos_x, pos_y], gpu.GPU.RGB8, [255, 0, 0])  # altera pixel (u, v, tipo, r, g, b)
+        len_lista = len(point)
+        r, g, b = colors["emissiveColor"]
+        for i in range(0, len_lista, 2):
+            pos_x = int(point[i])
+            pos_y = int(point[i+1])
+            gpu.GPU.draw_pixel([pos_x, pos_y], gpu.GPU.RGB8, [r*255, g*255, b*255])
+
         # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
         
     @staticmethod
@@ -71,11 +74,42 @@ class GL:
         print("Polyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
         print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
         
-        # Exemplo:
-        pos_x = GL.width//2
-        pos_y = GL.height//2
-        gpu.GPU.draw_pixel([pos_x, pos_y], gpu.GPU.RGB8, [255, 0, 255])  # altera pixel (u, v, tipo, r, g, b)
         # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
+
+        len_lista = len(lineSegments)
+        r, g, b = colors["emissiveColor"]
+        for i in range(0, len_lista, 4):
+            p1 = [int(lineSegments[i]), int(lineSegments[i+1])]       # Coord. Ponto 1
+            p2 = [int(lineSegments[i+2]), int(lineSegments[i+3])]     # Coord. Ponto 2
+
+            # Coeficiente angular : (y1 - y0)/(x1 - x0)
+            y1_y0 = (p2[1] - p1[1])
+            x1_x0 = (p2[0] - p1[0])
+            if x1_x0 == 0:
+                coef_ang = y1_y0
+            else:
+                coef_ang = y1_y0 / x1_x0
+            
+            v = p1[1]
+            for u in range(p1[0], p2[0]):
+                gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+
+                # contiuar = True
+                # while contiuar:
+                #    y_next = round(v) + 1
+                #    gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
+                
+                copy_coef = coef_ang
+                y_now = v + 1
+                while copy_coef > 1:
+                    gpu.GPU.draw_pixel([u, round(y_now)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    copy_coef -= 1
+                    y_now += 1
+
+                v += coef_ang
+
+            gpu.GPU.draw_pixel([p2[0], p2[1]], gpu.GPU.RGB8, [r*255, g*255, b*255])
+            
 
     @staticmethod
     def circle2D(radius, colors):
