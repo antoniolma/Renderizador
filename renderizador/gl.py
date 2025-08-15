@@ -79,19 +79,19 @@ class GL:
         len_lista = len(lineSegments)
         r, g, b = colors["emissiveColor"]
         for i in range(0, len_lista, 4):
-            p1 = [int(lineSegments[i]), int(lineSegments[i+1])]       # Coord. Ponto 1
-            p2 = [int(lineSegments[i+2]), int(lineSegments[i+3])]     # Coord. Ponto 2
+            p0 = [int(lineSegments[i]), int(lineSegments[i+1])]       # Coord. Ponto 0
+            p1 = [int(lineSegments[i+2]), int(lineSegments[i+3])]     # Coord. Ponto 1
 
             # Coeficiente angular : (y1 - y0)/(x1 - x0)
-            y1_y0 = (p2[1] - p1[1])
-            x1_x0 = (p2[0] - p1[0])
+            y1_y0 = (p1[1] - p0[1])
+            x1_x0 = (p1[0] - p0[0])
             if x1_x0 == 0:
                 coef_ang = y1_y0
             else:
                 coef_ang = y1_y0 / x1_x0
             
-            v = p1[1]
-            for u in range(p1[0], p2[0]):
+            v = p0[1]
+            for u in range(p0[0], p1[0]):
                 gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
                 # contiuar = True
@@ -101,14 +101,14 @@ class GL:
                 
                 copy_coef = coef_ang
                 y_now = v + 1
-                while copy_coef > 1:
+                while copy_coef > 2:
                     gpu.GPU.draw_pixel([u, round(y_now)], gpu.GPU.RGB8, [r*255, g*255, b*255])
                     copy_coef -= 1
                     y_now += 1
 
-                v += coef_ang
+                v += round(coef_ang)
 
-            gpu.GPU.draw_pixel([p2[0], p2[1]], gpu.GPU.RGB8, [r*255, g*255, b*255])
+            gpu.GPU.draw_pixel([p1[0], round(p1[1])], gpu.GPU.RGB8, [r*255, g*255, b*255])
             
 
     @staticmethod
