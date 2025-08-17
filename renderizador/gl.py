@@ -89,9 +89,28 @@ class GL:
                 coef_ang = y1_y0
             else:
                 coef_ang = y1_y0 / x1_x0
-            
-            v = p0[1]
-            for u in range(p0[0], p1[0]):
+
+            # mult = int(coef_ang >= 0)
+            # dir_x = int(p0[0] <= p1[0])
+            # dir_y = int(p0[1] <= p1[1])
+            # u, v = p0
+            # gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+
+            # continuar = True
+            # while continuar:
+            #     v += mult*1
+            #     gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+
+
+            if p0[0] <= p1[0]:
+                maior = p1
+                menor = p0
+            else:
+                maior = p0
+                menor = p1
+            v = menor[1]
+
+            for u in range(menor[0], maior[0] + 1):
                 gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
                 # contiuar = True
@@ -99,7 +118,7 @@ class GL:
                 #    y_next = round(v) + 1
                 #    gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
                 
-                copy_coef = coef_ang
+                copy_coef = abs(coef_ang)
                 y_now = v + 1
                 while copy_coef > 2:
                     gpu.GPU.draw_pixel([u, round(y_now)], gpu.GPU.RGB8, [r*255, g*255, b*255])
@@ -108,7 +127,7 @@ class GL:
 
                 v += round(coef_ang)
 
-            gpu.GPU.draw_pixel([p1[0], round(p1[1])], gpu.GPU.RGB8, [r*255, g*255, b*255])
+            # gpu.GPU.draw_pixel([p1[0], round(p1[1])], gpu.GPU.RGB8, [r*255, g*255, b*255])
             
 
     @staticmethod
