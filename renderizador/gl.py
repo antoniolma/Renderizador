@@ -76,11 +76,14 @@ class GL:
         
         # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
 
-        len_lista = len(lineSegments)
+        lista_pontos = []
         r, g, b = colors["emissiveColor"]
-        for i in range(0, len_lista, 4):
-            p0 = [int(lineSegments[i]), int(lineSegments[i+1])]       # Coord. Ponto 0
-            p1 = [int(lineSegments[i+2]), int(lineSegments[i+3])]     # Coord. Ponto 1
+        for i in range(0, len(lineSegments), 2):
+            lista_pontos.append([int(lineSegments[i]), int(lineSegments[i+1])])
+
+        for i in range(len(lista_pontos) - 1):
+            p0 = lista_pontos[i]
+            p1 = lista_pontos[(i+1) % len(lista_pontos)]
 
             # Coeficiente angular : (y1 - y0)/(x1 - x0)
             y1_y0 = (p1[1] - p0[1])
@@ -106,7 +109,7 @@ class GL:
                     coef_ang = (p1[1] - p0[1])/(p1[0] - p0[0])
 
                 for u in range(menor[0], maior[0] + 1):
-                    print(f"{u}, {v}")
+                    # print(f"{u}, {v}")
                     gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
                     v += coef_ang
                 
@@ -126,7 +129,7 @@ class GL:
                     coef_ang = (p1[0] - p0[0])/(p1[1] - p0[1])
 
                 for v in range(menor[1], maior[1] + 1):
-                    print(f"== {u}, {v}")
+                    # print(f"== {u}, {v}")
                     gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
                     u += coef_ang
             
