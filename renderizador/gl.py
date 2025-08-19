@@ -151,12 +151,82 @@ class GL:
 
         print("Circle2D : radius = {0}".format(radius)) # imprime no terminal
         print("Circle2D : colors = {0}".format(colors)) # imprime no terminal as cores
-        
-        # Exemplo:
-        pos_x = GL.width//2
-        pos_y = GL.height//2
-        gpu.GPU.draw_pixel([pos_x, pos_y], gpu.GPU.RGB8, [255, 0, 255])  # altera pixel (u, v, tipo, r, g, b)
-        # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
+
+        # ISSO NAO VAI FUNCIONAR SE O CENTRO FOR DIFERENTE DE (0, 0)!!!!!!!!!!
+
+        r, g, b = colors["emissiveColor"]
+        pontos_por_lado = 4 # quantos pontos colocar por "lado" do circulo
+        lista_pontos = []
+        pontos_obrigatorios = [[int(radius), 0], [0, int(radius)], [-int(radius), 0], [0, -int(radius)]] # pontos chave
+        for i in range(len(pontos_obrigatorios)):
+            x0, y0 = pontos_obrigatorios[i]
+            x1, y1 = pontos_obrigatorios[(i+1) % len(pontos_obrigatorios)]
+            x, y = x0, y0
+            mult = 1
+            if x < 0 or y < 0:
+                mult = -1
+            for _ in range(pontos_por_lado):
+                lista_pontos.append((x, y))
+                x = int(x + (x1 - x0)/pontos_por_lado)
+                y = int(mult * math.sqrt(int(radius)**2 - x**2))
+
+        for i in range(len(lista_pontos) - 1):
+            p0 = lista_pontos[i]
+            p1 = lista_pontos[(i+1) % len(lista_pontos)]
+
+            # Coeficiente angular : (y1 - y0)/(x1 - x0)
+            y1_y0 = (p1[1] - p0[1])
+            x1_x0 = (p1[0] - p0[0])
+            if x1_x0 == 0:
+                coef_ang = y1_y0
+            else:
+                coef_ang = y1_y0 / x1_x0
+
+            if abs(coef_ang) < 1:
+
+                if p0[0] <= p1[0]:
+                    maior = p1
+                    menor = p0
+                else:
+                    maior = p0
+                    menor = p1
+                v = menor[1]
+
+                if p1[0] - p0[0] == 0:
+                    coef_ang = p1[1] - p0[1]
+                else:
+                    coef_ang = (p1[1] - p0[1])/(p1[0] - p0[0])
+
+                for u in range(menor[0], maior[0] + 1):
+                    # print(f"{u}, {v}")
+                    try:
+                        gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    except:
+                        pass
+                    v += coef_ang
+                
+            else:
+
+                if p0[1] <= p1[1]:
+                    maior = p1
+                    menor = p0
+                else:
+                    maior = p0
+                    menor = p1
+                u = menor[0]
+
+                if p1[1] - p0[1] == 0:
+                    coef_ang = p1[0] - p0[0]
+                else:
+                    coef_ang = (p1[0] - p0[0])/(p1[1] - p0[1])
+
+                for v in range(menor[1], maior[1] + 1):
+                    # print(f"== {u}, {v}")
+                    try:
+                        gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    except:
+                        pass
+                    u += coef_ang
 
 
     @staticmethod
