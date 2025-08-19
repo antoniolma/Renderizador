@@ -71,7 +71,7 @@ class GL:
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polyline2D
         # você pode assumir inicialmente o desenho das linhas com a cor emissiva (emissiveColor).
 
-        print("Polyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
+        print("\n\nPolyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
         print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
         
         # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
@@ -90,44 +90,45 @@ class GL:
             else:
                 coef_ang = y1_y0 / x1_x0
 
-            # mult = int(coef_ang >= 0)
-            # dir_x = int(p0[0] <= p1[0])
-            # dir_y = int(p0[1] <= p1[1])
-            # u, v = p0
-            # gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+            if abs(coef_ang) < 1:
 
-            # continuar = True
-            # while continuar:
-            #     v += mult*1
-            #     gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                if p0[0] <= p1[0]:
+                    maior = p1
+                    menor = p0
+                else:
+                    maior = p0
+                    menor = p1
+                v = menor[1]
 
+                if p1[0] - p0[0] == 0:
+                    coef_ang = p1[1] - p0[1]
+                else:
+                    coef_ang = (p1[1] - p0[1])/(p1[0] - p0[0])
 
-            if p0[0] <= p1[0]:
-                maior = p1
-                menor = p0
-            else:
-                maior = p0
-                menor = p1
-            v = menor[1]
-
-            for u in range(menor[0], maior[0] + 1):
-                gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
-
-                # contiuar = True
-                # while contiuar:
-                #    y_next = round(v) + 1
-                #    gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
+                for u in range(menor[0], maior[0] + 1):
+                    print(f"{u}, {v}")
+                    gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    v += coef_ang
                 
-                copy_coef = abs(coef_ang)
-                y_now = v + 1
-                while copy_coef > 2:
-                    gpu.GPU.draw_pixel([u, round(y_now)], gpu.GPU.RGB8, [r*255, g*255, b*255])
-                    copy_coef -= 1
-                    y_now += 1
+            else:
 
-                v += round(coef_ang)
+                if p0[1] <= p1[1]:
+                    maior = p1
+                    menor = p0
+                else:
+                    maior = p0
+                    menor = p1
+                u = menor[0]
 
-            # gpu.GPU.draw_pixel([p1[0], round(p1[1])], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                if p1[1] - p0[1] == 0:
+                    coef_ang = p1[0] - p0[0]
+                else:
+                    coef_ang = (p1[0] - p0[0])/(p1[1] - p0[1])
+
+                for v in range(menor[1], maior[1] + 1):
+                    print(f"== {u}, {v}")
+                    gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    u += coef_ang
             
 
     @staticmethod
