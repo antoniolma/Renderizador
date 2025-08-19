@@ -92,7 +92,7 @@ class GL:
             else:
                 coef_ang = y1_y0 / x1_x0
 
-            if abs(coef_ang) < 1:
+            if abs(coef_ang) < 1: # se x cresce mais que y (percorrer x e preencher y)
 
                 if p0[0] <= p1[0]:
                     maior = p1
@@ -115,7 +115,7 @@ class GL:
                         pass
                     v += coef_ang
                 
-            else:
+            else: # se y cresce mais que x (percorrer y e preencher x)
 
                 if p0[1] <= p1[1]:
                     maior = p1
@@ -155,7 +155,7 @@ class GL:
 
         r, g, b = colors["emissiveColor"]
         pontos_por_lado = 4 # quantos pontos colocar por "lado" do circulo
-        lista_pontos = []
+        lista_pontos = [] # lista dos pontos que realmente serao desenhados
         pontos_obrigatorios = [[int(radius), 0], [0, int(radius)], [-int(radius), 0], [0, -int(radius)]] # pontos chave
         for i in range(len(pontos_obrigatorios)):
             x0, y0 = pontos_obrigatorios[i]
@@ -181,7 +181,7 @@ class GL:
             else:
                 coef_ang = y1_y0 / x1_x0
 
-            if abs(coef_ang) < 1:
+            if abs(coef_ang) < 1: # se x cresce mais que y (percorrer x e preencher y)
 
                 if p0[0] <= p1[0]:
                     maior = p1
@@ -204,7 +204,7 @@ class GL:
                         pass
                     v += coef_ang
                 
-            else:
+            else: # se y cresce mais que x (percorrer y e preencher x)
 
                 if p0[1] <= p1[1]:
                     maior = p1
@@ -252,7 +252,7 @@ class GL:
             return 1
 
         lista_pontos = []
-        lista_pontos_float = []
+        lista_pontos_float = [] # lista com os valores em float para melhorar a conta da funcao inside (isso fez diferenca)
         r, g, b = colors["emissiveColor"]
         for i in range(0, len(vertices), 2):
             lista_pontos.append([int(vertices[i]), int(vertices[i+1])])
@@ -271,7 +271,7 @@ class GL:
             else:
                 coef_ang = y1_y0 / x1_x0
 
-            if abs(coef_ang) < 1:
+            if abs(coef_ang) < 1: # se x cresce mais que y (percorrer x e preencher y)
 
                 if p0[0] <= p1[0]:
                     maior = p1
@@ -294,7 +294,7 @@ class GL:
                         pass
                     v += coef_ang
                 
-            else:
+            else: # se y cresce mais que x (percorrer y e preencher x)
 
                 if p0[1] <= p1[1]:
                     maior = p1
