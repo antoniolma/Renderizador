@@ -110,7 +110,10 @@ class GL:
 
                 for u in range(menor[0], maior[0] + 1):
                     # print(f"{u}, {v}")
-                    gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    try:
+                        gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    except:
+                        pass
                     v += coef_ang
                 
             else:
@@ -130,7 +133,10 @@ class GL:
 
                 for v in range(menor[1], maior[1] + 1):
                     # print(f"== {u}, {v}")
-                    gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    try:
+                        gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    except:
+                        pass
                     u += coef_ang
             
 
