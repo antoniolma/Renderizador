@@ -44,9 +44,8 @@ class GL:
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polypoint2D
         # você pode assumir inicialmente o desenho dos pontos com a cor emissiva (emissiveColor).
 
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
-        print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("Polypoint2D : pontos = {0}".format(point)) # imprime no terminal pontos
+        # print("Polypoint2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
         len_lista = len(point)
         r, g, b = colors["emissiveColor"]
@@ -71,8 +70,8 @@ class GL:
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Polyline2D
         # você pode assumir inicialmente o desenho das linhas com a cor emissiva (emissiveColor).
 
-        print("\n\nPolyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
-        print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("\n\nPolyline2D : lineSegments = {0}".format(lineSegments)) # imprime no terminal
+        # print("Polyline2D : colors = {0}".format(colors)) # imprime no terminal as cores
         
         # cuidado com as cores, o X3D especifica de (0,1) e o Framebuffer de (0,255)
 
@@ -149,8 +148,8 @@ class GL:
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o Circle2D
         # você pode assumir o desenho das linhas com a cor emissiva (emissiveColor).
 
-        print("Circle2D : radius = {0}".format(radius)) # imprime no terminal
-        print("Circle2D : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("Circle2D : radius = {0}".format(radius)) # imprime no terminal
+        # print("Circle2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # ISSO NAO VAI FUNCIONAR SE O CENTRO FOR DIFERENTE DE (0, 0)!!!!!!!!!!
 
@@ -240,8 +239,8 @@ class GL:
         # quantidade de pontos é sempre multiplo de 3, ou seja, 6 valores ou 12 valores, etc.
         # O parâmetro colors é um dicionário com os tipos cores possíveis, para o TriangleSet2D
         # você pode assumir inicialmente o desenho das linhas com a cor emissiva (emissiveColor).
-        print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
-        print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
+        # print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
         def inside(triangle, x, y):
             for i in range(len(triangle)):
@@ -253,9 +252,12 @@ class GL:
             return 1
 
         lista_pontos = []
+        lista_pontos_float = []
         r, g, b = colors["emissiveColor"]
         for i in range(0, len(vertices), 2):
             lista_pontos.append([int(vertices[i]), int(vertices[i+1])])
+            lista_pontos_float.append([vertices[i], vertices[i+1]])
+
 
         for i in range(len(lista_pontos)):
             p0 = lista_pontos[i]
@@ -318,7 +320,7 @@ class GL:
         for i in range(0, len(lista_pontos), 3): # iterando sobre o numero de triangulos (se tiver mais que um num TriangleSet2D)
             for w in range(GL.width):
                 for h in range(GL.height):
-                    if inside(lista_pontos[i:i+3], w + 0.5, h + 0.5):
+                    if inside(lista_pontos_float[i:i+3], w + 0.5, h + 0.5):
                         gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
     @staticmethod
@@ -353,10 +355,10 @@ class GL:
         # perspectiva para poder aplicar nos pontos dos objetos geométricos.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Viewpoint : ", end='')
-        print("position = {0} ".format(position), end='')
-        print("orientation = {0} ".format(orientation), end='')
-        print("fieldOfView = {0} ".format(fieldOfView))
+        # print("Viewpoint : ", end='')
+        # print("position = {0} ".format(position), end='')
+        # print("orientation = {0} ".format(orientation), end='')
+        # print("fieldOfView = {0} ".format(fieldOfView))
 
     @staticmethod
     def transform_in(translation, scale, rotation):
@@ -372,14 +374,14 @@ class GL:
         # Você precisará usar alguma estrutura de dados pilha para organizar as matrizes.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Transform : ", end='')
-        if translation:
-            print("translation = {0} ".format(translation), end='') # imprime no terminal
-        if scale:
-            print("scale = {0} ".format(scale), end='') # imprime no terminal
-        if rotation:
-            print("rotation = {0} ".format(rotation), end='') # imprime no terminal
-        print("")
+        # print("Transform : ", end='')
+        # if translation:
+        #     print("translation = {0} ".format(translation), end='') # imprime no terminal
+        # if scale:
+        #     print("scale = {0} ".format(scale), end='') # imprime no terminal
+        # if rotation:
+        #     print("rotation = {0} ".format(rotation), end='') # imprime no terminal
+        # print("")
 
     @staticmethod
     def transform_out():
@@ -390,7 +392,7 @@ class GL:
         # pilha implementada.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Saindo de Transform")
+        # print("Saindo de Transform")
 
     @staticmethod
     def triangleStripSet(point, stripCount, colors):
@@ -558,7 +560,7 @@ class GL:
         # ambientIntensity = 0,0 e direção = (0 0 −1).
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
+        # print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
 
     @staticmethod
     def directionalLight(ambientIntensity, color, intensity, direction):
