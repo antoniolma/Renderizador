@@ -24,7 +24,15 @@ class GL:
     near = 0.01   # plano de corte próximo
     far = 1000    # plano de corte distante
 
-    M = None      # Matrizes
+    # Matrizes
+    Mt = None
+    Mr = None
+    Ms = None
+
+    Mt_c = None
+    Mr_c = None
+    
+    Mp = None
 
     @staticmethod
     def setup(width, height, near=0.01, far=1000):
@@ -342,34 +350,54 @@ class GL:
         # (emissiveColor), conforme implementar novos materias você deverá suportar outros
         # tipos de cores.
 
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
+        # # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("TriangleSet : pontos = {0}".format(point)) # imprime no terminal pontos
-        print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
+        # print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
-        # Exemplo de desenho de um pixel branco na coordenada 10, 10
         r, g, b = colors["emissiveColor"]
         # i_triang = 0
         for i in range(0, len(point), 3):
             # Pegando pontos (x, y, z) de cada triangulo
-            x, y, z = int(point[i]), int(point[i+1]), int(point[i+2])
+            x, y, z = point[i], point[i+1], point[i+2]
             # print(f'(x = {x}, y = {y}, z = {z})')
-            if z == 0:
-                z = 1
 
-            # # Fica preso até que as matrizes de transformação sejam definidas
-            # while GL.M == None:
-            #     pass
+            M = GL.Mt @ GL.Mr @ GL.Ms
 
-            x, y, z, _ = GL.M @ np.array([[x], [y], [z], [1]])
+            # Object-World
+            OW = M @ np.array([[x], [y], [z], [1]])
+            # print('OW = ')
+            # print(OW)
+
+            # World-View
+            WV = GL.Mt_c @ GL.Mr_c @ OW
+            # print(GL.Mt_c @ GL.Mr_c)
+            # print('\nWV = ')
+            # print(WV)
+
+            # View-Point
+            VP = GL.Mp @ WV
+            # print(GL.Mp)
+            # print('\nVP = ')
+            # print(VP)
+
+            x_w = VP[0] / VP[3]
+            y_w = VP[1] / VP[3]
+            z_w = VP[2] / VP[3]
+
+            M_screen = np.array([
+                [GL.width/2, 0, 0, GL.width/2],
+                [0, -GL.height/2, 0, GL.height/2],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1]
+            ])
+
+            # print(x_w,y_w,z_w)
+            [x], [y], [z], _ = M_screen @ np.array([[x_w[0]], [y_w[0]], [z_w[0]], [1]])
             
-            try:
-                gpu.GPU.draw_pixel([x, y], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
-            except:
-                pass
+            x1 = point[(i + 3) % len(point)]
+            y1 = point[(i + 3) % len(point)]
 
-            # Reseta variável
-            # GL.M = None
-            # i_triang += 1
+            gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
 
 
     @staticmethod
@@ -379,15 +407,45 @@ class GL:
         # câmera virtual. Use esses dados para poder calcular e criar a matriz de projeção
         # perspectiva para poder aplicar nos pontos dos objetos geométricos.
 
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Viewpoint : ", end='')
-        print("position = {0} ".format(position), end='')
-        print("orientation = {0} ".format(orientation), end='')
-        print("fieldOfView = {0} ".format(fieldOfView))
+        # # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
+        # print("Viewpoint : ", end='')
+        # print("position = {0} ".format(position), end='')
+        # print("orientation = {0} ".format(orientation), end='')
+        # print("fieldOfView = {0} ".format(fieldOfView))
 
         # Ex.: Viewpoint : position = [0.0, 0.0, -5.0] orientation = [0.0, -1.0, 0.0, 3.1415] fieldOfView = 0.7853981633974483 
+        # Posicao da câmera
+        Cx, Cy, Cz = position[0], position[1], position[2]
+        GL.Mt_c = np.array([
+            [1, 0, 0, Cx],
+            [0, 1, 0, Cy],
+            [0, 0, 1, Cz],
+            [0, 0, 0, 1 ]
+        ])
         
-        
+        # Orientação da câmera
+        qi = orientation[0] * math.sin(orientation[3]/2)
+        qj = orientation[1] * math.sin(orientation[3]/2)
+        qk = orientation[2] * math.sin(orientation[3]/2)
+        qr = math.cos(orientation[3]/2)
+        GL.Mr_c = np.array([
+            [1 - 2*(qj**2 + qk**2), 2*(qi*qj - qk*qr), 2*(qi*qk + qj*qr), 0],
+            [2*(qi*qj + qk*qr), 1 - 2*(qi**2 + qk**2), 2*(qj*qk - qi*qr), 0],
+            [2*(qi*qk - qj*qr), 2*(qj*qk + qi*qr), 1 - 2*(qi**2 + qj**2), 0],
+            [0, 0, 0, 1]
+        ])
+
+        fovy = 2 * math.atan(math.tan(fieldOfView/2) * GL.height/(np.sqrt(GL.height**2 + GL.width**2)))
+        top = GL.near * math.tan(fovy)
+        right = top * GL.width/GL.height
+
+        # Matriz de perspectiva 
+        GL.Mp = np.array([
+            [GL.near/right, 0, 0, 0],
+            [0, GL.near/top, 0, 0],
+            [0, 0, - (GL.far + GL.near)/(GL.far - GL.near), -2 * GL.far * GL.near / (GL.far - GL.near)],
+            [0, 0, -1, 0]
+        ])
 
     @staticmethod
     def transform_in(translation, scale, rotation):
@@ -403,16 +461,16 @@ class GL:
         # Você precisará usar alguma estrutura de dados pilha para organizar as matrizes.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("Transform : ", end='')
-        if translation:
-            print("translation = {0} ".format(translation), end='') # imprime no terminal
-        if scale:
-            print("scale = {0} ".format(scale), end='') # imprime no terminal
-        if rotation:
-            print("rotation = {0} ".format(rotation), end='') # imprime no terminal
-        print("")
+        # print("Transform : ", end='')
+        # if translation:
+        #     print("translation = {0} ".format(translation), end='') # imprime no terminal
+        # if scale:
+        #     print("scale = {0} ".format(scale), end='') # imprime no terminal
+        # if rotation:
+        #     print("rotation = {0} ".format(rotation), end='') # imprime no terminal
+        # print("")
 
-        Mt = np.array([
+        GL.Mt = np.array([
             [1, 0, 0, translation[0]],
             [0, 1, 0, translation[1]],
             [0, 0, 1, translation[2]],
@@ -424,21 +482,20 @@ class GL:
         qj = rotation[1] * math.sin(rotation[3]/2)
         qk = rotation[2] * math.sin(rotation[3]/2)
         qr = math.cos(rotation[3]/2)
-        Mr = [
+        GL.Mr = np.array([
             [1 - 2*(qj**2 + qk**2), 2*(qi*qj - qk*qr), 2*(qi*qk + qj*qr), 0],
             [2*(qi*qj + qk*qr), 1 - 2*(qi**2 + qk**2), 2*(qj*qk - qi*qr), 0],
             [2*(qi*qk - qj*qr), 2*(qj*qk + qi*qr), 1 - 2*(qi**2 + qj**2), 0],
             [0, 0, 0, 1]
-        ]
+        ])
 
-        Ms = np.array([
+        GL.Ms = np.array([
             [scale[0], 0, 0, 0],
             [0, scale[1], 0, 0],
             [0, 0, scale[2], 0],
             [0, 0, 0, 1]
         ])
-        GL.M = Mt @ Mr @ Ms
-        print(GL.M)
+        # print(GL.M)
 
     @staticmethod
     def transform_out():
