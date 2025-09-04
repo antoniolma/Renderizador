@@ -345,7 +345,16 @@ class GL:
         print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        r, g, b = colors["emissiveColor"]
+        for i in range(0, 3, 3):
+            # Pegando pontos (x, y, z) de cada triangulo
+            x, y, z = int(point[i]), int(point[i+1]), int(point[i+2])
+            # print(f'(x = {x}, y = {y}, z = {z})')
+            if z == 0:
+                z = 1
+            
+            gpu.GPU.draw_pixel([x/z, y/z], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
+
 
     @staticmethod
     def viewpoint(position, orientation, fieldOfView):
@@ -355,10 +364,10 @@ class GL:
         # perspectiva para poder aplicar nos pontos dos objetos geométricos.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("Viewpoint : ", end='')
-        # print("position = {0} ".format(position), end='')
-        # print("orientation = {0} ".format(orientation), end='')
-        # print("fieldOfView = {0} ".format(fieldOfView))
+        print("Viewpoint : ", end='')
+        print("position = {0} ".format(position), end='')
+        print("orientation = {0} ".format(orientation), end='')
+        print("fieldOfView = {0} ".format(fieldOfView))
 
     @staticmethod
     def transform_in(translation, scale, rotation):
@@ -374,14 +383,14 @@ class GL:
         # Você precisará usar alguma estrutura de dados pilha para organizar as matrizes.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("Transform : ", end='')
-        # if translation:
-        #     print("translation = {0} ".format(translation), end='') # imprime no terminal
-        # if scale:
-        #     print("scale = {0} ".format(scale), end='') # imprime no terminal
-        # if rotation:
-        #     print("rotation = {0} ".format(rotation), end='') # imprime no terminal
-        # print("")
+        print("Transform : ", end='')
+        if translation:
+            print("translation = {0} ".format(translation), end='') # imprime no terminal
+        if scale:
+            print("scale = {0} ".format(scale), end='') # imprime no terminal
+        if rotation:
+            print("rotation = {0} ".format(rotation), end='') # imprime no terminal
+        print("")
 
     @staticmethod
     def transform_out():
