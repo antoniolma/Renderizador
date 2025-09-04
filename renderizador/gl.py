@@ -24,6 +24,8 @@ class GL:
     near = 0.01   # plano de corte próximo
     far = 1000    # plano de corte distante
 
+    M = None      # Matrizes
+
     @staticmethod
     def setup(width, height, near=0.01, far=1000):
         """Definr parametros para câmera de razão de aspecto, plano próximo e distante."""
@@ -346,14 +348,28 @@ class GL:
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
         r, g, b = colors["emissiveColor"]
-        for i in range(0, 3, 3):
+        # i_triang = 0
+        for i in range(0, len(point), 3):
             # Pegando pontos (x, y, z) de cada triangulo
             x, y, z = int(point[i]), int(point[i+1]), int(point[i+2])
             # print(f'(x = {x}, y = {y}, z = {z})')
             if z == 0:
                 z = 1
+
+            # # Fica preso até que as matrizes de transformação sejam definidas
+            # while GL.M == None:
+            #     pass
+
+            x, y, z, _ = GL.M @ np.array([[x], [y], [z], [1]])
             
-            gpu.GPU.draw_pixel([x/z, y/z], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
+            try:
+                gpu.GPU.draw_pixel([x, y], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
+            except:
+                pass
+
+            # Reseta variável
+            # GL.M = None
+            # i_triang += 1
 
 
     @staticmethod
@@ -368,6 +384,10 @@ class GL:
         print("position = {0} ".format(position), end='')
         print("orientation = {0} ".format(orientation), end='')
         print("fieldOfView = {0} ".format(fieldOfView))
+
+        # Ex.: Viewpoint : position = [0.0, 0.0, -5.0] orientation = [0.0, -1.0, 0.0, 3.1415] fieldOfView = 0.7853981633974483 
+        
+        
 
     @staticmethod
     def transform_in(translation, scale, rotation):
@@ -391,6 +411,34 @@ class GL:
         if rotation:
             print("rotation = {0} ".format(rotation), end='') # imprime no terminal
         print("")
+
+        Mt = np.array([
+            [1, 0, 0, translation[0]],
+            [0, 1, 0, translation[1]],
+            [0, 0, 1, translation[2]],
+            [0, 0, 0, 1]
+        ])
+
+        # Ex.: rotation = [-1.0, 0.0, 0.0, 3.1415]
+        qi = rotation[0] * math.sin(rotation[3]/2)
+        qj = rotation[1] * math.sin(rotation[3]/2)
+        qk = rotation[2] * math.sin(rotation[3]/2)
+        qr = math.cos(rotation[3]/2)
+        Mr = [
+            [1 - 2*(qj**2 + qk**2), 2*(qi*qj - qk*qr), 2*(qi*qk + qj*qr), 0],
+            [2*(qi*qj + qk*qr), 1 - 2*(qi**2 + qk**2), 2*(qj*qk - qi*qr), 0],
+            [2*(qi*qk - qj*qr), 2*(qj*qk + qi*qr), 1 - 2*(qi**2 + qj**2), 0],
+            [0, 0, 0, 1]
+        ]
+
+        Ms = np.array([
+            [scale[0], 0, 0, 0],
+            [0, scale[1], 0, 0],
+            [0, 0, scale[2], 0],
+            [0, 0, 0, 1]
+        ])
+        GL.M = Mt @ Mr @ Ms
+        print(GL.M)
 
     @staticmethod
     def transform_out():
