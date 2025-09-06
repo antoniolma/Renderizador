@@ -240,6 +240,9 @@ class GL:
     def draw_line(x0, y0, x1, y1, r, g, b):
         y1_y0 = (y1 - y0)
         x1_x0 = (x1 - x0)
+
+        print(f'({x0}, {y0}) e ({x1}, {y1}):')
+
         if x1_x0 == 0:
             coef_ang = y1_y0
         else:
@@ -250,21 +253,20 @@ class GL:
             if x0 <= x1:
                 maior = x1
                 menor = x0
+                v = y0
             else:
                 maior = x0
                 menor = x1
-            v = menor[1]
+                v = y1
 
             if x1 - x0 == 0:
                 coef_ang = y1 - y0
             else:
                 coef_ang = (y1 - y0)/(x1 - x0)
 
-            for u in range(menor, maior + 1):
-                try:
-                    gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
-                except:
-                    pass
+            for u in range(int(menor), round(maior) + 1):
+                print(f'     u = {u}, v = {v}')
+                gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
                 v += coef_ang
             
         else: # se y cresce mais que x (percorrer y e preencher x)
@@ -272,33 +274,38 @@ class GL:
             if y0 <= y1:
                 maior = y1
                 menor = y0
+                u = x0
             else:
                 maior = y0
                 menor = y1
-            u = menor[0]
+                u = x1
 
             if y1 - y0 == 0:
                 coef_ang = x1 - x0
             else:
                 coef_ang = (x1 - x0)/(y1 - y0)
 
-            for v in range(menor, maior + 1):
-                # print(f"== {u}, {v}")
-                try:
-                    gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
-                except:
-                    pass
+            for v in range(int(menor), round(maior) + 1):
+                gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
                 u += coef_ang
 
     def draw_triangle(lista_pontos, r, g, b):
         def inside(triangle, x, y):
+            # print()
             for i in range(len(triangle)):
                 p0 = triangle[i]
                 p1 = triangle[(i+1) % len(triangle)]
                 L = (p1[1] - p0[1])*x - (p1[0] - p0[0])*y + p0[1]*(p1[0] - p0[0]) - p0[0]*(p1[1] - p0[1])
+                # if x == 43.5 and y == 11.5:
+                #     print(x, y, L, triangle)
                 if L < 0:
                     return 0
             return 1
+
+        for i in range(len(lista_pontos)):
+            GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
+
+        # print(inside(lista_pontos, 43.5, 12.5))
         
         min_x = min(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
         max_x = max(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
@@ -306,8 +313,8 @@ class GL:
         min_y = min(lista_pontos[0][1], lista_pontos[1][1], lista_pontos[2][1])
         max_y = max(lista_pontos[0][1], lista_pontos[1][1], lista_pontos[2][1])
     
-        for w in range(int(min_x), round(max_x + 1)):
-            for h in range(int(min_y), round(max_y + 1)):
+        for w in range(max(round(min_x), 0), min(round(max_x) + 1, GL.width)):
+            for h in range(max(round(min_y), 0), min(round(max_y) + 1, GL.height)):
                 if inside(lista_pontos, w + 0.5, h + 0.5):
                     gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
@@ -428,30 +435,23 @@ class GL:
         # print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
         r, g, b = colors["emissiveColor"]
+        lista_pontos = []
+        print(f'Pontos triang.:')
         for i in range(0, len(point), 3):
             # Pegando pontos (x, y, z) de cada triangulo
             x, y, z = point[i], point[i+1], point[i+2]
-            # print(f'(x = {x}, y = {y}, z = {z})')
 
             M = GL.Mt @ GL.Mr @ GL.Ms
 
             # Object-World
             OW = M @ np.array([[x], [y], [z], [1]])
-            # print('OW = ')
-            # print(OW)
 
             # World-View
             # MR @ MT <- Matriz Look At (Aula 6) (Camera)
             WV = GL.Mr_c @ GL.Mt_c @ OW
-            # print(GL.Mr_c @ GL.Mt_c)
-            # print('\nWV = ')
-            # print(WV)
 
             # View-Point
             VP = GL.Mp @ WV
-            # print(GL.Mp)
-            # print('\nVP = ')
-            # print(VP)
 
             x_w = VP[0] / VP[3]
             y_w = VP[1] / VP[3]
@@ -465,19 +465,15 @@ class GL:
                 [0, 0, 0, 1]
             ])
 
-            # print(x_w,y_w,z_w)
             [x], [y], [z], _ = M_screen @ np.array([[x_w[0]], [y_w[0]], [z_w[0]], [1]])
+            print(f'({x}, {y})')
+
+            lista_pontos.append((x, y, z))
             
-            x1 = point[(i + 3) % (len(point)//3)]
-            y1 = point[(i + 4) % (len(point)//3)]
-
-            x2 = point[(i + 6) % (len(point)//3)]
-            y2 = point[(i + 7) % (len(point)//3)]
-
-            GL.draw_triangle(((x, y), (x1, y1), (x2, y2)), r, g, b)
-
-            gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
-
+        for i in range(0, len(lista_pontos), 3):
+            GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b)
+            
+            # gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
 
     @staticmethod
     def viewpoint(position, orientation, fieldOfView):
