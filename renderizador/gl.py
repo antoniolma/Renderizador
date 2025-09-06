@@ -241,8 +241,6 @@ class GL:
         y1_y0 = (y1 - y0)
         x1_x0 = (x1 - x0)
 
-        print(f'({x0}, {y0}) e ({x1}, {y1}):')
-
         if x1_x0 == 0:
             coef_ang = y1_y0
         else:
@@ -265,7 +263,6 @@ class GL:
                 coef_ang = (y1 - y0)/(x1 - x0)
 
             for u in range(int(menor), round(maior) + 1):
-                print(f'     u = {u}, v = {v}')
                 gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
                 v += coef_ang
             
@@ -302,11 +299,9 @@ class GL:
                     return 0
             return 1
 
-        for i in range(len(lista_pontos)):
-            GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
+        # for i in range(len(lista_pontos)):
+        #     GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
 
-        # print(inside(lista_pontos, 43.5, 12.5))
-        
         min_x = min(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
         max_x = max(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
 
@@ -436,7 +431,6 @@ class GL:
 
         r, g, b = colors["emissiveColor"]
         lista_pontos = []
-        print(f'Pontos triang.:')
         for i in range(0, len(point), 3):
             # Pegando pontos (x, y, z) de cada triangulo
             x, y, z = point[i], point[i+1], point[i+2]
@@ -466,7 +460,6 @@ class GL:
             ])
 
             [x], [y], [z], _ = M_screen @ np.array([[x_w[0]], [y_w[0]], [z_w[0]], [1]])
-            print(f'({x}, {y})')
 
             lista_pontos.append((x, y, z))
             
