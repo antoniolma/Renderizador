@@ -34,6 +34,10 @@ class GL:
     
     Mp = None
 
+    # Pilha
+    stack = []
+    last_matrix = np.identity(4)
+
     @staticmethod
     def setup(width, height, near=0.01, far=1000):
         """Definr parametros para câmera de razão de aspecto, plano próximo e distante."""
@@ -310,6 +314,7 @@ class GL:
     
         for w in range(max(round(min_x), 0), min(round(max_x) + 1, GL.width)):
             for h in range(max(round(min_y), 0), min(round(max_y) + 1, GL.height)):
+                # print(inside(lista_pontos, w + 0.5, h + 0.5))
                 if inside(lista_pontos, w + 0.5, h + 0.5):
                     gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
@@ -408,6 +413,35 @@ class GL:
                     if inside(lista_pontos_float[i:i+3], w + 0.5, h + 0.5):
                         gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
+    def transform_3Dto2D(x_3d, y_3d, z_3d):
+        M = GL.last_matrix
+
+        # Object-World
+        OW = M @ np.array([[x_3d], [y_3d], [z_3d], [1]])
+
+        # World-View
+        # MR @ MT <- Matriz Look At (Aula 6) (Camera)
+        WV = GL.Mr_c @ GL.Mt_c @ OW
+
+        # View-Point
+        VP = GL.Mp @ WV
+
+        x_w = VP[0] / VP[3]
+        y_w = VP[1] / VP[3]
+        z_w = VP[2] / VP[3]
+
+        # Matrriz de Transformações para Tela
+        M_screen = np.array([
+            [GL.width/2, 0, 0, GL.width/2],
+            [0, -GL.height/2, 0, GL.height/2],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ])
+
+        [x], [y], [z], _ = M_screen @ np.array([[x_w[0]], [y_w[0]], [z_w[0]], [1]])
+
+        return (x, y, z)
+
     @staticmethod
     def triangleSet(point, colors):
         """Função usada para renderizar TriangleSet."""
@@ -432,36 +466,7 @@ class GL:
         r, g, b = colors["emissiveColor"]
         lista_pontos = []
         for i in range(0, len(point), 3):
-            # Pegando pontos (x, y, z) de cada triangulo
-            x, y, z = point[i], point[i+1], point[i+2]
-
-            M = GL.Mt @ GL.Mr @ GL.Ms
-
-            # Object-World
-            OW = M @ np.array([[x], [y], [z], [1]])
-
-            # World-View
-            # MR @ MT <- Matriz Look At (Aula 6) (Camera)
-            WV = GL.Mr_c @ GL.Mt_c @ OW
-
-            # View-Point
-            VP = GL.Mp @ WV
-
-            x_w = VP[0] / VP[3]
-            y_w = VP[1] / VP[3]
-            z_w = VP[2] / VP[3]
-    
-            # Matrriz de Transformações para Tela
-            M_screen = np.array([
-                [GL.width/2, 0, 0, GL.width/2],
-                [0, -GL.height/2, 0, GL.height/2],
-                [0, 0, 1, 0],
-                [0, 0, 0, 1]
-            ])
-
-            [x], [y], [z], _ = M_screen @ np.array([[x_w[0]], [y_w[0]], [z_w[0]], [1]])
-
-            lista_pontos.append((x, y, z))
+            lista_pontos.append(GL.transform_3Dto2D(point[i], point[i + 1], point[i + 2]))
             
         for i in range(0, len(lista_pontos), 3):
             GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b)
@@ -545,6 +550,13 @@ class GL:
             [0, 0, 0, 1]
         ])
 
+        GL.Ms = np.array([
+            [scale[0], 0, 0, 0],
+            [0, scale[1], 0, 0],
+            [0, 0, scale[2], 0],
+            [0, 0, 0, 1]
+        ])
+
         # Ex.: rotation = [-1.0, 0.0, 0.0, 3.1415]
         qi = rotation[0] * math.sin(rotation[3]/2)
         qj = rotation[1] * math.sin(rotation[3]/2)
@@ -556,14 +568,12 @@ class GL:
             [2*(qi*qk - qj*qr), 2*(qj*qk + qi*qr), 1 - 2*(qi**2 + qj**2), 0],
             [0, 0, 0, 1]
         ])
-
-        GL.Ms = np.array([
-            [scale[0], 0, 0, 0],
-            [0, scale[1], 0, 0],
-            [0, 0, scale[2], 0],
-            [0, 0, 0, 1]
-        ])
+        
+        GL.stack.append(GL.last_matrix)
+        GL.last_matrix = GL.last_matrix @ GL.Mt @ GL.Mr @ GL.Ms
+        # print(GL.last_matrix, len(GL.stack))
         # print(GL.M)
+        # print(GL.last_matrix)
 
     @staticmethod
     def transform_out():
@@ -575,6 +585,11 @@ class GL:
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("Saindo de Transform")
+
+        GL.last_matrix = GL.stack.pop()
+        # print(GL.last_matrix, len(GL.stack))
+        # print(GL.last_matrix)
+
 
     @staticmethod
     def triangleStripSet(point, stripCount, colors):
@@ -592,14 +607,30 @@ class GL:
         # todos no sentido horário ou todos no sentido anti-horário, conforme especificado.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("TriangleStripSet : pontos = {0} ".format(point), end='')
+        # print("TriangleStripSet : pontos = {0} ".format(point), end='')
+        # for i, strip in enumerate(stripCount):
+        #     print("strip[{0}] = {1} ".format(i, strip), end='')
+        # print("")
+        # print("TriangleStripSet : colors = {0}".format(colors)) # imprime no terminal as cores
+
+        r, g, b = colors["emissiveColor"]
         for i, strip in enumerate(stripCount):
-            print("strip[{0}] = {1} ".format(i, strip), end='')
-        print("")
-        print("TriangleStripSet : colors = {0}".format(colors)) # imprime no terminal as cores
+            for j in range(strip-2):
+                idx_0 = 3*i + j 
+                idx_1 = 3*i + j + 1
+                idx_2 = 3*i + j + 2
+                if j%2 != 0:
+                    idx_1 = 3*i + j + 2
+                    idx_2 = 3*i + j + 1
+                
+                p0 = GL.transform_3Dto2D(point[3*idx_0], point[3*idx_0 + 1], point[3*idx_0 + 2])
+                p1 = GL.transform_3Dto2D(point[3*idx_1], point[3*idx_1 + 1], point[3*idx_1 + 2])
+                p2 = GL.transform_3Dto2D(point[3*idx_2], point[3*idx_2 + 1], point[3*idx_2 + 2])
+
+                GL.draw_triangle([p0, p1, p2], r, g, b)
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
 
     @staticmethod
     def indexedTriangleStripSet(point, index, colors):
@@ -618,11 +649,31 @@ class GL:
         # todos no sentido horário ou todos no sentido anti-horário, conforme especificado.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
-        print("IndexedTriangleStripSet : colors = {0}".format(colors)) # imprime as cores
+        # print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
+        # print("IndexedTriangleStripSet : colors = {0}".format(colors)) # imprime as cores
 
-        # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        r, g, b = colors["emissiveColor"]
+        count_reset = 0
+        for i in range(len(index)):
+            if (i + 2) == len(index):
+                break
+
+            if (index[i+2] == -1) or (count_reset > 0 and count_reset < 3):
+                count_reset += 1
+            else:
+                idx_0 = index[i]
+                idx_1 = index[i+1]
+                idx_2 = index[i+2]
+                if i%2 != 0:
+                    idx_1 = index[i+2]
+                    idx_2 = index[i+1]
+
+                p0 = GL.transform_3Dto2D(point[3*idx_0], point[3*idx_0 + 1], point[3*idx_0 + 2])
+                p1 = GL.transform_3Dto2D(point[3*idx_1], point[3*idx_1 + 1], point[3*idx_1 + 2])
+                p2 = GL.transform_3Dto2D(point[3*idx_2], point[3*idx_2 + 1], point[3*idx_2 + 2])
+
+                GL.draw_triangle([p0, p1, p2], r, g, b)
+                count_reset = 0
 
     @staticmethod
     def indexedFaceSet(coord, coordIndex, colorPerVertex, color, colorIndex,
@@ -650,22 +701,82 @@ class GL:
         # implementadado um método para a leitura de imagens.
 
         # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("IndexedFaceSet : ")
-        if coord:
-            print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
-        print("colorPerVertex = {0}".format(colorPerVertex))
-        if colorPerVertex and color and colorIndex:
-            print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
-        if texCoord and texCoordIndex:
-            print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
-        if current_texture:
-            image = gpu.GPU.load_texture(current_texture[0])
-            print("\t Matriz com image = {0}".format(image))
-            print("\t Dimensões da image = {0}".format(image.shape))
-        print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
+        # print("IndexedFaceSet : ")
+        # if coord:
+        #     print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
+        # print("colorPerVertex = {0}".format(colorPerVertex))
+        # if colorPerVertex and color and colorIndex:
+        #     print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
+        # if texCoord and texCoordIndex:
+        #     print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
+        # if current_texture:
+        #     image = gpu.GPU.load_texture(current_texture[0])
+        #     print("\t Matriz com image = {0}".format(image))
+        #     print("\t Dimensões da image = {0}".format(image.shape))
+        # print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
+        # print(f'Tamanho coord = {len(coord)}')
+        # print(f'Tamanho coordIndex = {len(coordIndex)}')
 
-        # Exemplo de desenho de um pixel branco na coordenada 10, 10
-        gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
+        # Cria uma lista com os pontos
+        vertices = []
+        for i in range(0, len(coord), 3):
+            x = coord[i]
+            y = coord[i+1]
+            z = coord[i+2]
+            vertices.append((x, y, z))
+
+        # Pega as cores corretas
+        r, g, b = colors["emissiveColor"]
+    
+        # Exemplo: 0, 1, 2, 3, 4, -1
+        # Primeiro -> 0, 1, 2
+        # Segundo  -> 0, 2, 3
+        # Terceito -> 0, 3, 4
+        reset = 1                       # Para resetar o ponto que conecta todos os outros
+        conexoes = [-99, -99, -99]      # Lista para conectar os pontos
+        count = 1
+        for i in range(len(coordIndex)):
+            # Apos ter encontrado um -1, reseta a lista
+            if reset == 1:
+                i_vertice = coordIndex[i]
+                p0 = vertices[i_vertice]
+
+                # Pega o Ponto P0 e transforma para "2D"
+                p0 = GL.transform_3Dto2D(p0[0], p0[1], p0[2])
+
+                conexoes = [p0, -99, -99]
+                count = 1
+                reset = 0
+
+            if coordIndex[i] == -1:
+                reset = 1
+            elif count == 1:
+                i_vertice = coordIndex[i]
+
+                # Pega o Ponto P1 e transforma para "2D"
+                p1 = vertices[i_vertice]
+                p1 = GL.transform_3Dto2D(p1[0], p1[1], p1[2])
+                
+                conexoes[1] = p1
+                count += 1
+            else:
+                # Pega o proximo ponto válido
+                i_vertice = coordIndex[i]
+                p2 = vertices[i_vertice]
+
+                # Pega o Ponto P2 e transforma para "2D"
+                p2 = GL.transform_3Dto2D(p2[0], p2[1], p2[2])
+
+                # Pega os pontos da lista
+                p0 = conexoes[0]
+                p1 = conexoes[1]
+
+                # Faz o Triangulo
+                GL.draw_triangle([p0, p1, p2], r, g, b)
+
+                # Arruma ordem para o próximo
+                conexoes[1] = p2
+                count += 1
 
     @staticmethod
     def box(size, colors):
