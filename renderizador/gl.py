@@ -364,10 +364,18 @@ class GL:
             for h in range(max(int(min_y), 0), min(round(max_y) + 1, GL.height)):
                 # print(inside(lista_pontos, w + 0.5, h + 0.5))
                 if inside(lista_pontos, w + 0.5, h + 0.5):
-                    if colorPerVertex:
-                        # Fórmulas das Coordenadas Baricêntricas
-                        (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
+                    # Fórmulas das Coordenadas Baricêntricas
+                    (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
 
+                    # Calculando z do ponto
+                    z0, z1, z2 = abs(lista_pontos[0][2]), abs(lista_pontos[1][2]), abs(lista_pontos[2][2])
+                    z = 1/(alpha/z0 + beta/z1 + gama/z2)
+                    # if z0 != 0 and z1 != 0 and z2 != 0:
+                    #     z = 1/(alpha/z0 + beta/z1 + gama/z2)
+                    # else:
+                    #     z = 1
+
+                    if colorPerVertex:
                         # Pega as cores dos vertices
                         (r_v0, g_v0, b_v0) = vertexColors[0]
                         (r_v1, g_v1, b_v1) = vertexColors[1]
@@ -378,14 +386,26 @@ class GL:
                         g_pixel = max(0, min(1, alpha*g_v0 + beta*g_v1 + gama*g_v2))
                         b_pixel = max(0, min(1, alpha*b_v0 + beta*b_v1 + gama*b_v2))
 
+                        # teste
+                        # r_pixel = max(0, min(1, z * r_pixel/z0))
+                        # g_pixel = max(0, min(1, z * g_pixel/z1))
+                        # b_pixel = max(0, min(1, z * b_pixel/z2))
+
                         # print(f"R: {int(r_pixel*255)}")
                         # print(f"G: {int(g_pixel*255)}")
                         # print(f"B: {int(b_pixel*255)}")
 
-                        gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+                        # Atualizando cor apenas se z for menor (mais na frente)
+                        if w == 210:
+                            print(w, h, z, (255*r, 255*g, 255*b), (255*r_pixel//1, 255*g_pixel//1, 255*b_pixel//1))
+                        if z < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z])
+                            gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
                     else:
-                        gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
-        
+                        # Atualizando cor apenas se z for menor (mais na frente)
+                        if z < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z])
+                            gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])        
 
     @staticmethod
     def triangleSet2D(vertices, colors):
@@ -508,6 +528,10 @@ class GL:
         ])
 
         [x], [y], [z], _ = M_screen @ np.array([[x_w[0]], [y_w[0]], [z_w[0]], [1]])
+
+        # print(z)
+        # if z < gpu.GPU.read_pixel([round(x), round(y)], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+        #     gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.DEPTH_COMPONENT32F, [z])
 
         # print(gpu.GPU.frame_buffer[x][y])
         # if z < gpu.GPU.read_pixel([x, y], gpu.GPU.DEPTH_COMPONENT32F):
