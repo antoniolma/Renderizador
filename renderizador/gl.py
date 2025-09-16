@@ -290,7 +290,29 @@ class GL:
                 gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
                 u += coef_ang
 
-    def draw_triangle(lista_pontos, r, g, b):
+    # Calculo de alpha, beta e gama para Coord. Baricêntricas (Aula 8)
+    def calcula_alpha_beta_gama(vertices, x, y):
+        # Pega os pontos 
+        (xA, yA, _) = vertices[0]
+        (xB, yB, _) = vertices[1]
+        (xC, yC, _) = vertices[2]
+
+        # Calcula Alpha
+        num_alpha = -1 * (x  - xB)*(yC - yB) + (y  - yB)*(xC - xB)
+        den_alpha = -1 * (xA - xB)*(yC - yB) + (yA - yB)*(xC - xB)
+        alpha = num_alpha/den_alpha
+
+        # Calcula Beta
+        num_beta = -1 * (x  - xC)*(yA - yC) + (y  - yC)*(xA - xC)
+        den_beta = -1 * (xB - xC)*(yA - yC) + (yB - yC)*(xA - xC)
+        beta = num_beta/den_beta
+
+        # Calcula Gama
+        gama = 1 - alpha - beta
+
+        return (alpha, beta, gama)
+
+    def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None):
         def inside(triangle, x, y):
             # print()
             for i in range(len(triangle)):
@@ -302,9 +324,35 @@ class GL:
                 if L < 0:
                     return 0
             return 1
+        
+        # Coordenadas do Baricentro (soma no 'for' e dps faz a media aritmetica)
+        xG = 0
+        yG = 0
+
+        # Desenha os vertices do triangulo
+        for i in range(3):
+            x = lista_pontos[i][0]       # x do vertice
+            y = lista_pontos[i][1]       # y do vertice
+
+            # Adiciona para o Baricentro
+            xG += x
+            yG += y
+            
+            if colorPerVertex:
+                r_pnt = vertexColors[i][0]
+                g_pnt = vertexColors[i][1]
+                b_pnt = vertexColors[i][2]
+                
+                gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r_pnt*255, g_pnt*255, b_pnt*255])
+            else:
+                gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
         # for i in range(len(lista_pontos)):
-        #     GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
+            # GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
+        if colorPerVertex:
+            # Termina a media aritmetica do Baricentro
+            xG = xG/3
+            yG = yG/3   
 
         min_x = min(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
         max_x = max(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
@@ -312,11 +360,32 @@ class GL:
         min_y = min(lista_pontos[0][1], lista_pontos[1][1], lista_pontos[2][1])
         max_y = max(lista_pontos[0][1], lista_pontos[1][1], lista_pontos[2][1])
     
-        for w in range(max(round(min_x), 0), min(round(max_x) + 1, GL.width)):
-            for h in range(max(round(min_y), 0), min(round(max_y) + 1, GL.height)):
+        for w in range(max(int(min_x), 0), min(round(max_x) + 1, GL.width)):
+            for h in range(max(int(min_y), 0), min(round(max_y) + 1, GL.height)):
                 # print(inside(lista_pontos, w + 0.5, h + 0.5))
                 if inside(lista_pontos, w + 0.5, h + 0.5):
-                    gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                    if colorPerVertex:
+                        # Fórmulas das Coordenadas Baricêntricas
+                        (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
+
+                        # Pega as cores dos vertices
+                        (r_v0, g_v0, b_v0) = vertexColors[0]
+                        (r_v1, g_v1, b_v1) = vertexColors[1]
+                        (r_v2, g_v2, b_v2) = vertexColors[2]
+
+                        # Calculo de cor do ponto, de acordo com seu alpha_ beta e gama 
+                        r_pixel = max(0, min(1, alpha*r_v0 + beta*r_v1 + gama*r_v2))
+                        g_pixel = max(0, min(1, alpha*g_v0 + beta*g_v1 + gama*g_v2))
+                        b_pixel = max(0, min(1, alpha*b_v0 + beta*b_v1 + gama*b_v2))
+
+                        # print(f"R: {int(r_pixel*255)}")
+                        # print(f"G: {int(g_pixel*255)}")
+                        # print(f"B: {int(b_pixel*255)}")
+
+                        gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+                    else:
+                        gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255]) 
+        
 
     @staticmethod
     def triangleSet2D(vertices, colors):
@@ -440,6 +509,13 @@ class GL:
 
         [x], [y], [z], _ = M_screen @ np.array([[x_w[0]], [y_w[0]], [z_w[0]], [1]])
 
+        # print(gpu.GPU.frame_buffer[x][y])
+        # if z < gpu.GPU.read_pixel([x, y], gpu.GPU.DEPTH_COMPONENT32F):
+        # if z < gpu.GPU.frame_buffer[x][y]:
+        #     gpu.GPU.draw_pixel([x, y], gpu.GPU.DEPTH_COMPONENT32F)
+            # gpu.GPU.
+            # gpu.GPU.frame_buffer[x][y] = 0
+
         return (x, y, z)
 
     @staticmethod
@@ -470,8 +546,6 @@ class GL:
             
         for i in range(0, len(lista_pontos), 3):
             GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b)
-            
-            # gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r*255, g*255, b*255])  # altera pixel
 
     @staticmethod
     def viewpoint(position, orientation, fieldOfView):
@@ -702,9 +776,6 @@ class GL:
 
         # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         # print("IndexedFaceSet : ")
-        # if coord:
-        #     print("\tpontos(x, y, z) = {0}, coordIndex = {1}".format(coord, coordIndex))
-        # print("colorPerVertex = {0}".format(colorPerVertex))
         # if colorPerVertex and color and colorIndex:
         #     print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
         # if texCoord and texCoordIndex:
@@ -719,13 +790,23 @@ class GL:
 
         # Cria uma lista com os pontos
         vertices = []
+        color_vert = []
         for i in range(0, len(coord), 3):
             x = coord[i]
             y = coord[i+1]
             z = coord[i+2]
             vertices.append((x, y, z))
 
-        # Pega as cores corretas
+            if colorPerVertex:
+                r = color[i]
+                g = color[i+1]
+                b = color[i+2]
+                color_vert.append((r, g, b))
+
+        # print(f"\tpontos = {vertices}")
+        # print(f"\tcoordIndex = {coordIndex}")
+
+        # Pega as cores default
         r, g, b = colors["emissiveColor"]
     
         # Exemplo: 0, 1, 2, 3, 4, -1
@@ -734,21 +815,27 @@ class GL:
         # Terceito -> 0, 3, 4
         reset = 1                       # Para resetar o ponto que conecta todos os outros
         conexoes = [-99, -99, -99]      # Lista para conectar os pontos
+        con_color = [-99, -99, -99]     # Lista de cores para os pontos das conexoes
         count = 1
         for i in range(len(coordIndex)):
             # Apos ter encontrado um -1, reseta a lista
             if reset == 1:
                 i_vertice = coordIndex[i]
-                p0 = vertices[i_vertice]
+                p0 = vertices[i_vertice]    # Pega ponto 0
 
                 # Pega o Ponto P0 e transforma para "2D"
                 p0 = GL.transform_3Dto2D(p0[0], p0[1], p0[2])
-
                 conexoes = [p0, -99, -99]
+
+                # Se pontos tiverem cor
+                if colorPerVertex:
+                    i_color = colorIndex[i]
+                    p0_cor = color_vert[i_color]  # Pega a cor do ponto 0
+                    con_color = [p0_cor, -99, -99]
+
                 count = 1
                 reset = 0
-
-            if coordIndex[i] == -1:
+            elif coordIndex[i] == -1:
                 reset = 1
             elif count == 1:
                 i_vertice = coordIndex[i]
@@ -756,13 +843,23 @@ class GL:
                 # Pega o Ponto P1 e transforma para "2D"
                 p1 = vertices[i_vertice]
                 p1 = GL.transform_3Dto2D(p1[0], p1[1], p1[2])
-                
                 conexoes[1] = p1
+
+                # Pega a cor do P1
+                if colorPerVertex:
+                    i_color = colorIndex[i]
+                    p1_cor = color_vert[i_color]
+                    con_color[1] = p1_cor
+                
                 count += 1
             else:
-                # Pega o proximo ponto válido
+                # Pega o proximo ponto válido (e sua cor)
                 i_vertice = coordIndex[i]
                 p2 = vertices[i_vertice]
+
+                if colorPerVertex:
+                    i_color = colorIndex[i]
+                    p2_cor = color_vert[i_color]
 
                 # Pega o Ponto P2 e transforma para "2D"
                 p2 = GL.transform_3Dto2D(p2[0], p2[1], p2[2])
@@ -771,11 +868,19 @@ class GL:
                 p0 = conexoes[0]
                 p1 = conexoes[1]
 
+                # Pega as cores do ponto
+                if colorPerVertex:
+                    r = p2_cor[0]
+                    g = p2_cor[1]
+                    b = p2_cor[2]
+                    con_color[2] = (r, g, b)
+
                 # Faz o Triangulo
-                GL.draw_triangle([p0, p1, p2], r, g, b)
+                GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color)
 
                 # Arruma ordem para o próximo
                 conexoes[1] = p2
+                con_color[1] = p2_cor
                 count += 1
 
     @staticmethod
