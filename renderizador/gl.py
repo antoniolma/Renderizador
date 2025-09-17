@@ -293,9 +293,9 @@ class GL:
     # Calculo de alpha, beta e gama para Coord. Baricêntricas (Aula 8)
     def calcula_alpha_beta_gama(vertices, x, y):
         # Pega os pontos 
-        (xA, yA, _) = vertices[0]
-        (xB, yB, _) = vertices[1]
-        (xC, yC, _) = vertices[2]
+        (xA, yA, _, _) = vertices[0]
+        (xB, yB, _, _) = vertices[1]
+        (xC, yC, _, _) = vertices[2]
 
         # Calcula Alpha
         num_alpha = -1 * (x  - xB)*(yC - yB) + (y  - yB)*(xC - xB)
@@ -367,44 +367,45 @@ class GL:
                     # Fórmulas das Coordenadas Baricêntricas
                     (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
 
-                    # Calculando z do ponto
+                    # Calculando Z_buffer do ponto
                     z0, z1, z2 = abs(lista_pontos[0][2]), abs(lista_pontos[1][2]), abs(lista_pontos[2][2])
-                    z = 1/(alpha/z0 + beta/z1 + gama/z2)
+                    z_buff = 1/(alpha/z0 + beta/z1 + gama/z2)
+
                     # if z0 != 0 and z1 != 0 and z2 != 0:
-                    #     z = 1/(alpha/z0 + beta/z1 + gama/z2)
+                    #     z_buff = 1/(alpha/z0 + beta/z1 + gama/z2)
                     # else:
-                    #     z = 1
+                    #     z_buff = 1
 
                     if colorPerVertex:
+                        # Pega os valores W (depois de Projection - 3D to 2D)
+                        w0 = lista_pontos[0][3]
+                        w1 = lista_pontos[1][3]
+                        w2 = lista_pontos[2][3]
+
+                        # Z para interpolação de cores
+                        z = 1/(alpha/w0 + beta/w1 + gama/w2)
+
                         # Pega as cores dos vertices
                         (r_v0, g_v0, b_v0) = vertexColors[0]
                         (r_v1, g_v1, b_v1) = vertexColors[1]
                         (r_v2, g_v2, b_v2) = vertexColors[2]
+    
+                        # Calculo de cor do ponto, de acordo com seu alpha beta gama e z 
+                        r_pixel = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
+                        g_pixel = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
+                        b_pixel = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
 
-                        # Calculo de cor do ponto, de acordo com seu alpha_ beta e gama 
-                        r_pixel = max(0, min(1, alpha*r_v0 + beta*r_v1 + gama*r_v2))
-                        g_pixel = max(0, min(1, alpha*g_v0 + beta*g_v1 + gama*g_v2))
-                        b_pixel = max(0, min(1, alpha*b_v0 + beta*b_v1 + gama*b_v2))
-
-                        # teste
-                        # r_pixel = max(0, min(1, z * r_pixel/z0))
-                        # g_pixel = max(0, min(1, z * g_pixel/z1))
-                        # b_pixel = max(0, min(1, z * b_pixel/z2))
-
-                        # print(f"R: {int(r_pixel*255)}")
-                        # print(f"G: {int(g_pixel*255)}")
-                        # print(f"B: {int(b_pixel*255)}")
-
-                        # Atualizando cor apenas se z for menor (mais na frente)
-                        if w == 210:
-                            print(w, h, z, (255*r, 255*g, 255*b), (255*r_pixel//1, 255*g_pixel//1, 255*b_pixel//1))
-                        if z < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
-                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z])
+                        # Atualizando cor apenas se z_buff for menor (mais na frente)
+                        # if w == 210:
+                        #     print(w, h, z_buff, (255*r, 255*g, 255*b), (255*r_pixel//1, 255*g_pixel//1, 255*b_pixel//1))
+                        if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
                     else:
-                        # Atualizando cor apenas se z for menor (mais na frente)
-                        if z < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
-                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z])
+
+                        # Atualizando cor apenas se z_buff for menor (mais na frente)
+                        if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])        
 
     @staticmethod
@@ -512,12 +513,13 @@ class GL:
         # MR @ MT <- Matriz Look At (Aula 6) (Camera)
         WV = GL.Mr_c @ GL.Mt_c @ OW
 
-        # View-Point
+        # View-Projection
         VP = GL.Mp @ WV
 
-        x_w = VP[0] / VP[3]
-        y_w = VP[1] / VP[3]
-        z_w = VP[2] / VP[3]
+        w = VP[3]
+        x_w = VP[0] / w
+        y_w = VP[1] / w
+        z_w = VP[2] / w
 
         # Matrriz de Transformações para Tela
         M_screen = np.array([
@@ -540,7 +542,7 @@ class GL:
             # gpu.GPU.
             # gpu.GPU.frame_buffer[x][y] = 0
 
-        return (x, y, z)
+        return (x, y, z, w)
 
     @staticmethod
     def triangleSet(point, colors):
