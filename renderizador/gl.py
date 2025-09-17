@@ -313,7 +313,7 @@ class GL:
         return (alpha, beta, gama)
 
     def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None, transparencia=1, 
-        hasTexture=False, text_shape=(0,0)
+        hasTexture=False, textCoords=None, text_shape=(0,0)
     ):
         def inside(triangle, x, y):
             # print()
@@ -405,18 +405,26 @@ class GL:
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
                     elif hasTexture:
                         # Coord. Texturas
-                        x0 = lista_pontos[0][0]
-                        x1 = lista_pontos[0][1]
-                        x2 = lista_pontos[0][2]
-                        U_text = alpha*x0 + beta*x1 + gama*x2
-                        y0 = lista_pontos[0][0]
-                        y1 = lista_pontos[0][1]
-                        y2 = lista_pontos[0][2]
-                        V_text = alpha*y0 + beta*y1 + gama*y2
+                        u0 = textCoords[0][0]
+                        u1 = textCoords[1][0]
+                        u2 = textCoords[2][0]
+                        U_text = alpha*u0 + beta*u1 + gama*u2
+                        v0 = textCoords[0][1]
+                        v1 = textCoords[1][1]
+                        v2 = textCoords[2][1]
+                        V_text = alpha*v0 + beta*v1 + gama*v2
 
-                        # Tamanho da imagem de textura
-                        (width_text, height_text) = text_shape
-                        
+                        print(f'pixel = ({w-0.5}, {h-0.5})')
+                        print(f'UV = ({U_text}, {V_text})')
+
+                        # # Tamanho da imagem de textura
+                        # (width_text, height_text) = text_shape
+                        # pixel_x = U_text*width_text
+                        # pixel_y = V_text*height_text
+                        # print(f'x = {pixel_x}')
+                        # print(f'y = {pixel_y}')
+                        # print(f'rgb? = {pixel_x}')
+                        pass
                     else:
                         # Atualizando cor apenas se z_buff for menor (mais na frente)
                         if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
@@ -607,7 +615,6 @@ class GL:
             lista_pontos.append(GL.transform_3Dto2D(point[i], point[i + 1], point[i + 2]))
             
         for i in range(0, len(lista_pontos), 3):
-            print(r, g, b, transparency)
             GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b, transparencia=transparency)
 
     @staticmethod
@@ -844,7 +851,6 @@ class GL:
         # if texCoord and texCoordIndex:
         #     print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
         # if current_texture:
-        #     image = gpu.GPU.load_texture(current_texture[0])
         #     print("\t Matriz com image = {0}".format(image))
         #     print("\t Dimensões da image = {0}".format(image.shape))
         # print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
@@ -852,12 +858,20 @@ class GL:
         # print(f'Tamanho coordIndex = {len(coordIndex)}')
 
         hasTexture = 0
+        img_shape = 0
         if current_texture:
+            image = gpu.GPU.load_texture(current_texture[0])
+            img_shape = image.shape
             hasTexture = 1
+
+        print(f'colorPerVertex = {colorPerVertex}')
+        print(f'current_texture = {current_texture}')
 
         # Cria uma lista com os pontos
         vertices = []
-        color_vert = []
+        color_vert = []     # Guarda as cores para cada vetor
+        text_pontos = []    # Guarda as coord. UV (textura)
+        i_text = 0
         for i in range(0, len(coord), 3):
             x = coord[i]
             y = coord[i+1]
@@ -869,6 +883,13 @@ class GL:
                 g = color[i+1]
                 b = color[i+2]
                 color_vert.append((r, g, b))
+
+            if hasTexture:
+                u = texCoord[i_text]
+                v = texCoord[i_text+1]
+                text_pontos.append((u, v))
+                i_text += 2
+
 
         # print(f"\tpontos = {vertices}")
         # print(f"\tcoordIndex = {coordIndex}")
@@ -883,6 +904,7 @@ class GL:
         reset = 1                       # Para resetar o ponto que conecta todos os outros
         conexoes = [-99, -99, -99]      # Lista para conectar os pontos
         con_color = [-99, -99, -99]     # Lista de cores para os pontos das conexoes
+        con_text = [-99, -99, -99]      # Lista para conectar os pontos com textura
         count = 1
         for i in range(len(coordIndex)):
             # Apos ter encontrado um -1, reseta a lista
@@ -899,6 +921,12 @@ class GL:
                     i_color = colorIndex[i]
                     p0_cor = color_vert[i_color]  # Pega a cor do ponto 0
                     con_color = [p0_cor, -99, -99]
+
+                # Pega as coord UV (textura) do P0
+                if hasTexture:
+                    i_text = texCoordIndex[i]
+                    p0_uv = text_pontos[i_text]
+                    con_text = [p0_uv, -99, -99]
 
                 count = 1
                 reset = 0
@@ -917,6 +945,12 @@ class GL:
                     i_color = colorIndex[i]
                     p1_cor = color_vert[i_color]
                     con_color[1] = p1_cor
+
+                # Pega as coord UV (textura) do P1
+                if hasTexture:
+                    i_text = texCoordIndex[i]
+                    p1_uv = text_pontos[i_text]
+                    con_text[1] = p1_uv
                 
                 count += 1
             else:
@@ -927,6 +961,19 @@ class GL:
                 if colorPerVertex:
                     i_color = colorIndex[i]
                     p2_cor = color_vert[i_color]
+    
+                    # Pega as cores do ponto
+                    r = p2_cor[0]
+                    g = p2_cor[1]
+                    b = p2_cor[2]
+                    con_color[2] = (r, g, b)
+
+                if hasTexture:
+                    i_text = texCoordIndex[i]
+                    p2_uv = text_pontos[i_text]
+
+                    # u = p2_uv[0]
+                    con_text[2] = p2_uv
 
                 # Pega o Ponto P2 e transforma para "2D"
                 p2 = GL.transform_3Dto2D(p2[0], p2[1], p2[2])
@@ -935,19 +982,16 @@ class GL:
                 p0 = conexoes[0]
                 p1 = conexoes[1]
 
-                # Pega as cores do ponto
-                if colorPerVertex:
-                    r = p2_cor[0]
-                    g = p2_cor[1]
-                    b = p2_cor[2]
-                    con_color[2] = (r, g, b)
-                    con_color[1] = p2_cor
-
                 # Faz o Triangulo
-                GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture)
+                GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture, textCoords=con_text ,text_shape=img_shape)
 
                 # Arruma ordem para o próximo
                 conexoes[1] = p2
+
+                if colorPerVertex:
+                    con_color[1] = p2_cor
+                if hasTexture:
+                    con_text[1] = p2_uv
                 count += 1
 
     @staticmethod

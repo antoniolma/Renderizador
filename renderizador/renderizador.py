@@ -36,6 +36,9 @@ class Renderizador:
         self.scene = None
         self.framebuffers = {}
 
+        self.supersampling_active = False
+        self.supersampling_size = 2
+
     def setup(self):
         """Configura o sistema para a renderização."""
         # Configurando color buffers para exibição na tela
@@ -112,6 +115,32 @@ class Renderizador:
         # Essa é uma chamada conveniente para manipulação de buffers
         # ao final da renderização de um frame. Como por exemplo, executar
         # downscaling da imagem.
+        for w in range(0, self.width * self.supersampling_size, 2):
+            for h in range(0, self.height * self.supersampling_size, 2):
+                # print(w, h)
+                # print(gpu.GPU.read_pixel([w, h], gpu.GPU.RGB8), gpu.GPU.read_pixel([w + 1, h], gpu.GPU.RGB8), gpu.GPU.read_pixel([w, h + 1], gpu.GPU.RGB8))
+                # print(gpu.GPU.read_pixel([w, h], gpu.GPU.RGB8) + gpu.GPU.read_pixel([w + 1, h], gpu.GPU.RGB8))
+                # r0, g0, b0 = (gpu.GPU.read_pixel([w, h], gpu.GPU.RGB8))
+                # r1, g1, b1 = (gpu.GPU.read_pixel([w + 1, h], gpu.GPU.RGB8))
+                # r2, g2, b2 = (gpu.GPU.read_pixel([w, h + 1], gpu.GPU.RGB8))
+                # r3, g3, b3 = (gpu.GPU.read_pixel([w + 1, h + 1], gpu.GPU.RGB8))
+                # print(r0 + r1, g0 + g1, int(b0) + int(b1))
+                # print(int(b0), type(b0))
+                # r_m = (int(r0) + int(r1) + int(r2) + int(r3)) / 4
+                # g_m = (int(g0) + int(g1) + int(g2) + int(g3)) / 4
+                # b_m = (int(b0) + int(b1) + int(b2) + int(b3)) / 4
+                # media = gpu.GPU.read_pixel([w, h], gpu.GPU.RGB8) + \
+                #         gpu.GPU.read_pixel([w + 1, h], gpu.GPU.RGB8) + \
+                #         gpu.GPU.read_pixel([w, h + 1], gpu.GPU.RGB8) + \
+                #         gpu.GPU.read_pixel([w + 1, h + 1], gpu.GPU.RGB8)
+                # media = media / 4
+                # media = [r_m, g_m, b_m]
+                # print(media)
+                print()
+                # gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, media)
+                # gpu.GPU.draw_pixel([w + 1, h], gpu.GPU.RGB8, media)
+                # gpu.GPU.draw_pixel([w, h + 1], gpu.GPU.RGB8, media)
+                # gpu.GPU.draw_pixel([w + 1, h + 1], gpu.GPU.RGB8, media)
 
         # Método para a troca dos buffers (NÃO IMPLEMENTADO)
         # Esse método será utilizado na fase de implementação de animações
