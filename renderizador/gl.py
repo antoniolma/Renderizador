@@ -312,7 +312,9 @@ class GL:
 
         return (alpha, beta, gama)
 
-    def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None):
+    def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None, transparencia=1, 
+        hasTexture=False, text_shape=(0,0)
+    ):
         def inside(triangle, x, y):
             # print()
             for i in range(len(triangle)):
@@ -401,12 +403,45 @@ class GL:
                         if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
-                    else:
+                    elif hasTexture:
+                        # Coord. Texturas
+                        x0 = lista_pontos[0][0]
+                        x1 = lista_pontos[0][1]
+                        x2 = lista_pontos[0][2]
+                        U_text = alpha*x0 + beta*x1 + gama*x2
+                        y0 = lista_pontos[0][0]
+                        y1 = lista_pontos[0][1]
+                        y2 = lista_pontos[0][2]
+                        V_text = alpha*y0 + beta*y1 + gama*y2
 
+                        # Tamanho da imagem de textura
+                        (width_text, height_text) = text_shape
+                        
+                    else:
                         # Atualizando cor apenas se z_buff for menor (mais na frente)
                         if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                            r_final = r
+                            g_final = g
+                            b_final = b
+
+                            # Se for transparente
+                            if transparencia < 1:
+                                # Pegando cor antiga (e normalizando pra intervalo [0, 1]
+                                old_r, old_g, old_b = gpu.GPU.read_pixel([w, h], gpu.GPU.RGB8)
+                                old_r *= transparencia / 255
+                                old_g *= transparencia / 255
+                                old_b *= transparencia / 255
+
+                                new_r = r * (1 - transparencia)
+                                new_g = g * (1 - transparencia)
+                                new_b = b * (1 - transparencia)
+
+                                r_final = min(1, old_r + new_r)
+                                g_final = min(1, old_g + new_g)
+                                b_final = min(1, old_b + new_b)
+
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                            gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])        
+                            gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r_final*255, g_final*255, b_final*255])        
 
     @staticmethod
     def triangleSet2D(vertices, colors):
@@ -565,13 +600,15 @@ class GL:
         # print("TriangleSet : pontos = {0}".format(point)) # imprime no terminal pontos
         # print("TriangleSet : colors = {0}".format(colors)) # imprime no terminal as cores
 
+        transparency = colors["transparency"]
         r, g, b = colors["emissiveColor"]
         lista_pontos = []
         for i in range(0, len(point), 3):
             lista_pontos.append(GL.transform_3Dto2D(point[i], point[i + 1], point[i + 2]))
             
         for i in range(0, len(lista_pontos), 3):
-            GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b)
+            print(r, g, b, transparency)
+            GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b, transparencia=transparency)
 
     @staticmethod
     def viewpoint(position, orientation, fieldOfView):
@@ -814,6 +851,10 @@ class GL:
         # print(f'Tamanho coord = {len(coord)}')
         # print(f'Tamanho coordIndex = {len(coordIndex)}')
 
+        hasTexture = 0
+        if current_texture:
+            hasTexture = 1
+
         # Cria uma lista com os pontos
         vertices = []
         color_vert = []
@@ -900,13 +941,13 @@ class GL:
                     g = p2_cor[1]
                     b = p2_cor[2]
                     con_color[2] = (r, g, b)
+                    con_color[1] = p2_cor
 
                 # Faz o Triangulo
-                GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color)
+                GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture)
 
                 # Arruma ordem para o próximo
                 conexoes[1] = p2
-                con_color[1] = p2_cor
                 count += 1
 
     @staticmethod
