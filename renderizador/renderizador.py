@@ -136,11 +136,12 @@ class Renderizador:
                 # media = media / 4
                 # media = [r_m, g_m, b_m]
                 # print(media)
-                print()
+                # print()
                 # gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, media)
                 # gpu.GPU.draw_pixel([w + 1, h], gpu.GPU.RGB8, media)
                 # gpu.GPU.draw_pixel([w, h + 1], gpu.GPU.RGB8, media)
                 # gpu.GPU.draw_pixel([w + 1, h + 1], gpu.GPU.RGB8, media)
+                pass
 
         # Método para a troca dos buffers (NÃO IMPLEMENTADO)
         # Esse método será utilizado na fase de implementação de animações

@@ -15,6 +15,7 @@ import time         # Para operações com tempo
 import gpu          # Simula os recursos de uma GPU
 import math         # Funções matemáticas
 import numpy as np  # Biblioteca do Numpy
+import cv2
 
 class GL:
     """Classe que representa a biblioteca gráfica (Graphics Library)."""
@@ -311,9 +312,44 @@ class GL:
         gama = 1 - alpha - beta
 
         return (alpha, beta, gama)
+    
+    def calcula_uv(textCoords, pesosCoordBar, listaW):
+        # Pesos 
+        (alpha, beta, gama) = pesosCoordBar
+
+        # Valores W
+        (w0, w1, w2) = listaW
+
+        # Coord. Texturas (Aula 09)
+        u0, v0 = textCoords[0]
+        u1, v1 = textCoords[1]
+        u2, v2 = textCoords[2]
+
+        # Calcula coord. em u
+        u = alpha*(u0/w0) + beta*(u1/w1) + gama*(u2/w2)  
+        u /= alpha*(1/w0) + beta*(1/w1) + gama*(1/w2)  
+        
+        # Calcula coord. em v
+        v = alpha*(v0/w0) + beta*(v1/w1) + gama*(v2/w2)
+        v /= alpha*(1/w0) + beta*(1/w1) + gama*(1/w2)
+        
+        return u, v
+    
+    # Devolve o MipMap de textura com uma nova resolucao com base no D
+    # Ex.: 32x32, 16x16, 8x8, etc.
+    def img_MipMaps(img, imgShape):
+        mipMaps = []
+
+        w, h, _ = imgShape
+        while w > 1 and h > 1:
+            w //= 2
+            h //= 2
+            mipMaps.append(cv2.resize(img, (w, h)))
+
+        return mipMaps
 
     def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None, transparencia=1, 
-        hasTexture=False, textCoords=None, text_shape=(0,0)
+        hasTexture=False, textCoords=None, textShape=(0,0), textImg=None
     ):
         def inside(triangle, x, y):
             # print()
@@ -326,6 +362,9 @@ class GL:
                 if L < 0:
                     return 0
             return 1
+        
+        # Caso use textura (resize com base em D)
+        hasMipMap = 0
         
         # Coordenadas do Baricentro (soma no 'for' e dps faz a media aritmetica)
         xG = 0
@@ -373,17 +412,13 @@ class GL:
                     z0, z1, z2 = abs(lista_pontos[0][2]), abs(lista_pontos[1][2]), abs(lista_pontos[2][2])
                     z_buff = 1/(alpha/z0 + beta/z1 + gama/z2)
 
-                    # if z0 != 0 and z1 != 0 and z2 != 0:
-                    #     z_buff = 1/(alpha/z0 + beta/z1 + gama/z2)
-                    # else:
-                    #     z_buff = 1
-
+                    # Pega os valores W (depois de Projection - 3D to 2D)
+                    w0 = lista_pontos[0][3]
+                    w1 = lista_pontos[1][3]
+                    w2 = lista_pontos[2][3]
+                    listaW = (w0, w1, w2)
+                    
                     if colorPerVertex:
-                        # Pega os valores W (depois de Projection - 3D to 2D)
-                        w0 = lista_pontos[0][3]
-                        w1 = lista_pontos[1][3]
-                        w2 = lista_pontos[2][3]
-
                         # Z para interpolação de cores
                         z = 1/(alpha/w0 + beta/w1 + gama/w2)
 
@@ -404,27 +439,58 @@ class GL:
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
                             gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
                     elif hasTexture:
-                        # Coord. Texturas
-                        u0 = textCoords[0][0]
-                        u1 = textCoords[1][0]
-                        u2 = textCoords[2][0]
-                        U_text = alpha*u0 + beta*u1 + gama*u2
-                        v0 = textCoords[0][1]
-                        v1 = textCoords[1][1]
-                        v2 = textCoords[2][1]
-                        V_text = alpha*v0 + beta*v1 + gama*v2
+                        pesos = (alpha, beta, gama)
 
-                        print(f'pixel = ({w-0.5}, {h-0.5})')
-                        print(f'UV = ({U_text}, {V_text})')
+                        # Coordenadas uv
+                        u, v = GL.calcula_uv(textCoords, pesos, listaW)
 
-                        # # Tamanho da imagem de textura
-                        # (width_text, height_text) = text_shape
-                        # pixel_x = U_text*width_text
-                        # pixel_y = V_text*height_text
-                        # print(f'x = {pixel_x}')
-                        # print(f'y = {pixel_y}')
-                        # print(f'rgb? = {pixel_x}')
-                        pass
+                        # Coordenadas uv para vizinho (direita)
+                        x_right, y_right = w+1, h
+                        (alpha_right, beta_right, gama_right) = GL.calcula_alpha_beta_gama(lista_pontos, x_right, y_right)
+                        pesos_right = (alpha_right, beta_right, gama_right)
+
+                        u_right, v_right = GL.calcula_uv(textCoords, pesos_right, listaW)
+
+                        # Coordenadas uv para vizinho (abaixo)
+                        x_down, y_down = w, h+1
+                        (alpha_down, beta_down, gama_down) = GL.calcula_alpha_beta_gama(lista_pontos, x_down, y_down)
+                        pesos_down = (alpha_down, beta_down, gama_down)
+
+                        u_down, v_down = GL.calcula_uv(textCoords, pesos_down, listaW)
+
+                        # Derivadas parciais
+                        dudx = (u_right - u)/(x_right - w)
+                        dudy = (u_down - u)/(y_down - h)
+                        dvdx = (v_right - v)/(x_right - w)
+                        dvdy = (v_down - v)/(y_down - h)
+
+                        # Calculo do L
+                        L = max( (dudx**2 + dvdx**2)**(1/2), (dudy**2 + dvdy**2)**(1/2) )
+
+                        # "Transforma" a imagem para resolucao de acordo com D, se ja n tiver feito
+                        if hasMipMap == 0:
+                            mipMaps = GL.img_MipMaps(textImg, textShape)
+                            hasMipMap = 1
+
+                        # So para evitar valores negativos
+                        D = max(0, min(len(mipMaps), int(math.log2(L))))
+
+                        # Oi G, ate aqui foi da aula de revisao, mas o resto...
+                        # Foi fé (buscas na internet e pensando pra tentar ressolver)
+
+                        # Pega o ponto na textura, apos o resize 
+                        mipMap_h, mipMap_w, _ = mipMaps[D].shape
+                        tex_x = int(u * (mipMap_w  - 1))
+                        tex_y = int((1-v) * (mipMap_h - 1))     # Inverte v, pois no grafico da aula 'v' tem sentido oposto a y na tela
+
+                        # cv2.resive salva em bgr
+                        bgr = mipMaps[D][tex_x][tex_y]
+                        r_pixel = bgr[2]
+                        g_pixel = bgr[1]
+                        b_pixel = bgr[0]
+
+                        gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+
                     else:
                         # Atualizando cor apenas se z_buff for menor (mais na frente)
                         if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
@@ -864,8 +930,8 @@ class GL:
             img_shape = image.shape
             hasTexture = 1
 
-        print(f'colorPerVertex = {colorPerVertex}')
-        print(f'current_texture = {current_texture}')
+        # print(f'colorPerVertex = {colorPerVertex}')
+        # print(f'current_texture = {current_texture}')
 
         # Cria uma lista com os pontos
         vertices = []
@@ -983,7 +1049,8 @@ class GL:
                 p1 = conexoes[1]
 
                 # Faz o Triangulo
-                GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture, textCoords=con_text ,text_shape=img_shape)
+                GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture, textCoords=con_text,
+                    textShape=img_shape, textImg=image)
 
                 # Arruma ordem para o próximo
                 conexoes[1] = p2
