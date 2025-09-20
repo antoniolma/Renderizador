@@ -39,6 +39,12 @@ class GL:
     stack = []
     last_matrix = np.identity(4)
 
+    # Supersampling (anti-aliasing)
+    supersampling_active = True
+    supersampling_size = 2
+    if not supersampling_active:
+        supersampling_size = 1
+
     @staticmethod
     def setup(width, height, near=0.01, far=1000):
         """Definr parametros para câmera de razão de aspecto, plano próximo e distante."""
@@ -384,9 +390,9 @@ class GL:
                 g_pnt = vertexColors[i][1]
                 b_pnt = vertexColors[i][2]
                 
-                gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r_pnt*255, g_pnt*255, b_pnt*255])
+                gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r_pnt*255, g_pnt*255, b_pnt*255])
             else:
-                gpu.GPU.draw_pixel([round(x), round(y)], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
         # for i in range(len(lista_pontos)):
             # GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
@@ -400,122 +406,132 @@ class GL:
 
         min_y = min(lista_pontos[0][1], lista_pontos[1][1], lista_pontos[2][1])
         max_y = max(lista_pontos[0][1], lista_pontos[1][1], lista_pontos[2][1])
-    
+
+        plus_x, plus_y = [0.5], [0.5]
+        if GL.supersampling_active:
+            plus_x = [0.25, 0.75]
+            plus_y = [0.25, 0.75]
+
+        print("-------------------")
+        print(r, g, b, "\n")
         for w in range(max(int(min_x), 0), min(round(max_x) + 1, GL.width)):
+            print("w: ", w)
             for h in range(max(int(min_y), 0), min(round(max_y) + 1, GL.height)):
-                # print(inside(lista_pontos, w + 0.5, h + 0.5))
-                if inside(lista_pontos, w + 0.5, h + 0.5):
-                    # Fórmulas das Coordenadas Baricêntricas
-                    (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
+                print("h: ", h)
+                for pl_x in plus_x:
+                    for pl_y in plus_y:
+                        print(inside(lista_pontos, w + pl_x, h + pl_y), w + pl_x, h + pl_y)
+                        if inside(lista_pontos, w + pl_x, h + pl_y):
+                            # Fórmulas das Coordenadas Baricêntricas
+                            (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
 
-                    # Calculando Z_buffer do ponto
-                    z0, z1, z2 = abs(lista_pontos[0][2]), abs(lista_pontos[1][2]), abs(lista_pontos[2][2])
-                    z_buff = 1/(alpha/z0 + beta/z1 + gama/z2)
+                            # Calculando Z_buffer do ponto
+                            z0, z1, z2 = abs(lista_pontos[0][2]), abs(lista_pontos[1][2]), abs(lista_pontos[2][2])
+                            z_buff = 1/(alpha/z0 + beta/z1 + gama/z2)
 
-                    # Pega os valores W (depois de Projection - 3D to 2D)
-                    w0 = lista_pontos[0][3]
-                    w1 = lista_pontos[1][3]
-                    w2 = lista_pontos[2][3]
-                    listaW = (w0, w1, w2)
-                    
-                    if colorPerVertex:
-                        # Z para interpolação de cores
-                        z = 1/(alpha/w0 + beta/w1 + gama/w2)
+                            # Pega os valores W (depois de Projection - 3D to 2D)
+                            w0 = lista_pontos[0][3]
+                            w1 = lista_pontos[1][3]
+                            w2 = lista_pontos[2][3]
+                            listaW = (w0, w1, w2)
+                            
+                            if colorPerVertex:
+                                # Z para interpolação de cores
+                                z = 1/(alpha/w0 + beta/w1 + gama/w2)
 
-                        # Pega as cores dos vertices
-                        (r_v0, g_v0, b_v0) = vertexColors[0]
-                        (r_v1, g_v1, b_v1) = vertexColors[1]
-                        (r_v2, g_v2, b_v2) = vertexColors[2]
-    
-                        # Calculo de cor do ponto, de acordo com seu alpha beta gama e z 
-                        r_pixel = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
-                        g_pixel = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
-                        b_pixel = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
+                                # Pega as cores dos vertices
+                                (r_v0, g_v0, b_v0) = vertexColors[0]
+                                (r_v1, g_v1, b_v1) = vertexColors[1]
+                                (r_v2, g_v2, b_v2) = vertexColors[2]
+            
+                                # Calculo de cor do ponto, de acordo com seu alpha beta gama e z 
+                                r_pixel = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
+                                g_pixel = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
+                                b_pixel = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
 
-                        # Atualizando cor apenas se z_buff for menor (mais na frente)
-                        # if w == 210:
-                        #     print(w, h, z_buff, (255*r, 255*g, 255*b), (255*r_pixel//1, 255*g_pixel//1, 255*b_pixel//1))
-                        if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
-                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                            gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
-                    elif hasTexture:
-                        pesos = (alpha, beta, gama)
+                                # Atualizando cor apenas se z_buff for menor (mais na frente)
+                                if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
+                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+                            elif hasTexture:
+                                pesos = (alpha, beta, gama)
 
-                        # Coordenadas uv
-                        u, v = GL.calcula_uv(textCoords, pesos, listaW)
+                                # Coordenadas uv
+                                u, v = GL.calcula_uv(textCoords, pesos, listaW)
 
-                        # Coordenadas uv para vizinho (direita)
-                        x_right, y_right = w+1, h
-                        (alpha_right, beta_right, gama_right) = GL.calcula_alpha_beta_gama(lista_pontos, x_right, y_right)
-                        pesos_right = (alpha_right, beta_right, gama_right)
+                                # Coordenadas uv para vizinho (direita)
+                                x_right, y_right = w+1, h
+                                (alpha_right, beta_right, gama_right) = GL.calcula_alpha_beta_gama(lista_pontos, x_right, y_right)
+                                pesos_right = (alpha_right, beta_right, gama_right)
 
-                        u_right, v_right = GL.calcula_uv(textCoords, pesos_right, listaW)
+                                u_right, v_right = GL.calcula_uv(textCoords, pesos_right, listaW)
 
-                        # Coordenadas uv para vizinho (abaixo)
-                        x_down, y_down = w, h+1
-                        (alpha_down, beta_down, gama_down) = GL.calcula_alpha_beta_gama(lista_pontos, x_down, y_down)
-                        pesos_down = (alpha_down, beta_down, gama_down)
+                                # Coordenadas uv para vizinho (abaixo)
+                                x_down, y_down = w, h+1
+                                (alpha_down, beta_down, gama_down) = GL.calcula_alpha_beta_gama(lista_pontos, x_down, y_down)
+                                pesos_down = (alpha_down, beta_down, gama_down)
 
-                        u_down, v_down = GL.calcula_uv(textCoords, pesos_down, listaW)
+                                u_down, v_down = GL.calcula_uv(textCoords, pesos_down, listaW)
 
-                        # Derivadas parciais
-                        dudx = (u_right - u)/(x_right - w)
-                        dudy = (u_down - u)/(y_down - h)
-                        dvdx = (v_right - v)/(x_right - w)
-                        dvdy = (v_down - v)/(y_down - h)
+                                # Derivadas parciais
+                                dudx = (u_right - u)/(x_right - w)
+                                dudy = (u_down - u)/(y_down - h)
+                                dvdx = (v_right - v)/(x_right - w)
+                                dvdy = (v_down - v)/(y_down - h)
 
-                        # Calculo do L
-                        L = max( (dudx**2 + dvdx**2)**(1/2), (dudy**2 + dvdy**2)**(1/2) )
+                                # Calculo do L
+                                L = max( (dudx**2 + dvdx**2)**(1/2), (dudy**2 + dvdy**2)**(1/2) )
 
-                        # "Transforma" a imagem para resolucao de acordo com D, se ja n tiver feito
-                        if hasMipMap == 0:
-                            mipMaps = GL.img_MipMaps(textImg, textShape)
-                            hasMipMap = 1
+                                # "Transforma" a imagem para resolucao de acordo com D, se ja n tiver feito
+                                if hasMipMap == 0:
+                                    mipMaps = GL.img_MipMaps(textImg, textShape)
+                                    hasMipMap = 1
 
-                        # So para evitar valores negativos
-                        D = max(0, min(len(mipMaps), int(math.log2(L))))
+                                # So para evitar valores negativos
+                                D = max(0, min(len(mipMaps), int(math.log2(L))))
 
-                        # Oi G, ate aqui foi da aula de revisao, mas o resto...
-                        # Foi fé (buscas na internet e pensando pra tentar ressolver)
+                                # Oi G, ate aqui foi da aula de revisao, mas o resto...
+                                # Foi fé (buscas na internet e pensando pra tentar ressolver)
 
-                        # Pega o ponto na textura, apos o resize 
-                        mipMap_h, mipMap_w, _ = mipMaps[D].shape
-                        tex_x = int(u * (mipMap_w  - 1))
-                        tex_y = int((1-v) * (mipMap_h - 1))     # Inverte v, pois no grafico da aula 'v' tem sentido oposto a y na tela
+                                # Pega o ponto na textura, apos o resize 
+                                mipMap_h, mipMap_w, _ = mipMaps[D].shape
+                                tex_x = int(u * (mipMap_w  - 1))
+                                tex_y = int((1-v) * (mipMap_h - 1))     # Inverte v, pois no grafico da aula 'v' tem sentido oposto a y na tela
 
-                        # cv2.resive salva em bgr
-                        bgr = mipMaps[D][tex_x][tex_y]
-                        r_pixel = bgr[2]
-                        g_pixel = bgr[1]
-                        b_pixel = bgr[0]
+                                # cv2.resive salva em bgr
+                                bgr = mipMaps[D][tex_x][tex_y]
+                                r_pixel = bgr[2]
+                                g_pixel = bgr[1]
+                                b_pixel = bgr[0]
 
-                        gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+                                gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
 
-                    else:
-                        # Atualizando cor apenas se z_buff for menor (mais na frente)
-                        if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
-                            r_final = r
-                            g_final = g
-                            b_final = b
+                            else:
+                                # Atualizando cor apenas se z_buff for menor (mais na frente)
+                                if z_buff < gpu.GPU.read_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                                    r_final = r
+                                    g_final = g
+                                    b_final = b
 
-                            # Se for transparente
-                            if transparencia < 1:
-                                # Pegando cor antiga (e normalizando pra intervalo [0, 1]
-                                old_r, old_g, old_b = gpu.GPU.read_pixel([w, h], gpu.GPU.RGB8)
-                                old_r *= transparencia / 255
-                                old_g *= transparencia / 255
-                                old_b *= transparencia / 255
+                                    # Se for transparente
+                                    if transparencia < 1:
+                                        # Pegando cor antiga (e normalizando pra intervalo [0, 1]
+                                        old_r, old_g, old_b = gpu.GPU.read_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8)
+                                        old_r *= transparencia / 255
+                                        old_g *= transparencia / 255
+                                        old_b *= transparencia / 255
 
-                                new_r = r * (1 - transparencia)
-                                new_g = g * (1 - transparencia)
-                                new_b = b * (1 - transparencia)
+                                        new_r = r * (1 - transparencia)
+                                        new_g = g * (1 - transparencia)
+                                        new_b = b * (1 - transparencia)
 
-                                r_final = min(1, old_r + new_r)
-                                g_final = min(1, old_g + new_g)
-                                b_final = min(1, old_b + new_b)
+                                        r_final = min(1, old_r + new_r)
+                                        g_final = min(1, old_g + new_g)
+                                        b_final = min(1, old_b + new_b)
 
-                            gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                            gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r_final*255, g_final*255, b_final*255])        
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [r_final*255, g_final*255, b_final*255])  
+                                    print("- ", GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y), "\n")      
 
     @staticmethod
     def triangleSet2D(vertices, colors):
@@ -531,86 +547,15 @@ class GL:
         # print("TriangleSet2D : vertices = {0}".format(vertices)) # imprime no terminal
         # print("TriangleSet2D : colors = {0}".format(colors)) # imprime no terminal as cores
 
-        def inside(triangle, x, y):
-            for i in range(len(triangle)):
-                p0 = triangle[i]
-                p1 = triangle[(i+1) % len(triangle)]
-                L = (p1[1] - p0[1])*x - (p1[0] - p0[0])*y + p0[1]*(p1[0] - p0[0]) - p0[0]*(p1[1] - p0[1])
-                if L < 0:
-                    return 0
-            return 1
-
-        lista_pontos = []
         lista_pontos_float = [] # lista com os valores em float para melhorar a conta da funcao inside (isso fez diferenca)
         r, g, b = colors["emissiveColor"]
         for i in range(0, len(vertices), 2):
-            lista_pontos.append([int(vertices[i]), int(vertices[i+1])])
-            lista_pontos_float.append([vertices[i], vertices[i+1]])
-
-
-        for i in range(len(lista_pontos)):
-            p0 = lista_pontos[i]
-            p1 = lista_pontos[(i+1) % len(lista_pontos)]
-
-            # Coeficiente angular : (y1 - y0)/(x1 - x0)
-            y1_y0 = (p1[1] - p0[1])
-            x1_x0 = (p1[0] - p0[0])
-            if x1_x0 == 0:
-                coef_ang = y1_y0
-            else:
-                coef_ang = y1_y0 / x1_x0
-
-            if abs(coef_ang) < 1: # se x cresce mais que y (percorrer x e preencher y)
-
-                if p0[0] <= p1[0]:
-                    maior = p1
-                    menor = p0
-                else:
-                    maior = p0
-                    menor = p1
-                v = menor[1]
-
-                if p1[0] - p0[0] == 0:
-                    coef_ang = p1[1] - p0[1]
-                else:
-                    coef_ang = (p1[1] - p0[1])/(p1[0] - p0[0])
-
-                for u in range(menor[0], maior[0] + 1):
-                    # print(f"{u}, {v}")
-                    try:
-                        gpu.GPU.draw_pixel([u, round(v)], gpu.GPU.RGB8, [r*255, g*255, b*255])
-                    except:
-                        pass
-                    v += coef_ang
-                
-            else: # se y cresce mais que x (percorrer y e preencher x)
-
-                if p0[1] <= p1[1]:
-                    maior = p1
-                    menor = p0
-                else:
-                    maior = p0
-                    menor = p1
-                u = menor[0]
-
-                if p1[1] - p0[1] == 0:
-                    coef_ang = p1[0] - p0[0]
-                else:
-                    coef_ang = (p1[0] - p0[0])/(p1[1] - p0[1])
-
-                for v in range(menor[1], maior[1] + 1):
-                    # print(f"== {u}, {v}")
-                    try:
-                        gpu.GPU.draw_pixel([round(u), v], gpu.GPU.RGB8, [r*255, g*255, b*255])
-                    except:
-                        pass
-                    u += coef_ang
-
-        for i in range(0, len(lista_pontos), 3): # iterando sobre o numero de triangulos (se tiver mais que um num TriangleSet2D)
-            for w in range(GL.width):
-                for h in range(GL.height):
-                    if inside(lista_pontos_float[i:i+3], w + 0.5, h + 0.5):
-                        gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [r*255, g*255, b*255])
+            # lista_pontos.append([int(vertices[i]), int(vertices[i+1])])
+            lista_pontos_float.append([vertices[i], vertices[i+1], 0.5, 1])
+        print(lista_pontos_float)
+        for i in range(0, len(lista_pontos_float), 3):
+            print(lista_pontos_float[i:(i+3)])
+            GL.draw_triangle(lista_pontos_float[i:(i+3)], r, g, b)
 
     def transform_3Dto2D(x_3d, y_3d, z_3d):
         M = GL.last_matrix
