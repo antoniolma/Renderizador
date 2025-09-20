@@ -346,11 +346,28 @@ class GL:
     def img_MipMaps(img, imgShape):
         mipMaps = []
 
-        w, h, _ = imgShape
+        w, h, z = imgShape
         while w > 1 and h > 1:
+
+            resized = np.zeros((w//2, h//2, z))
+            for u in range(0, w, 2):
+                for v in range(0, h, 2):
+                    # Pega os texels (texture pixels)
+                    texel0 = img[int(u), int(v)]
+                    texel1 = img[int(u)+1, int(v)]
+                    texel2 = img[int(u), int(v)+1]
+                    texel3 = img[int(u)+1, int(v)+1]
+
+                    # Calcula a media RGB entre os 4 pontos
+                    r = (float(texel0[0]) + float(texel1[0]) + float(texel2[0]) + float(texel3[0]))//4
+                    g = (float(texel0[1]) + float(texel1[1]) + float(texel2[1]) + float(texel3[1]))//4
+                    b = (float(texel0[2]) + float(texel1[2]) + float(texel2[2]) + float(texel3[2]))//4
+
+                    resized[int(u)//2, int(v)//2] = [r, g, b, 255]
+
+            mipMaps.append(resized)
             w //= 2
             h //= 2
-            mipMaps.append(cv2.resize(img, (w, h)))
 
         return mipMaps
 
@@ -412,15 +429,12 @@ class GL:
             plus_x = [0.25, 0.75]
             plus_y = [0.25, 0.75]
 
-        print("-------------------")
-        print(r, g, b, "\n")
+        print(textShape)
+
         for w in range(max(int(min_x), 0), min(round(max_x) + 1, GL.width)):
-            print("w: ", w)
             for h in range(max(int(min_y), 0), min(round(max_y) + 1, GL.height)):
-                print("h: ", h)
                 for pl_x in plus_x:
                     for pl_y in plus_y:
-                        print(inside(lista_pontos, w + pl_x, h + pl_y), w + pl_x, h + pl_y)
                         if inside(lista_pontos, w + pl_x, h + pl_y):
                             # Fórmulas das Coordenadas Baricêntricas
                             (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
@@ -435,25 +449,7 @@ class GL:
                             w2 = lista_pontos[2][3]
                             listaW = (w0, w1, w2)
                             
-                            if colorPerVertex:
-                                # Z para interpolação de cores
-                                z = 1/(alpha/w0 + beta/w1 + gama/w2)
-
-                                # Pega as cores dos vertices
-                                (r_v0, g_v0, b_v0) = vertexColors[0]
-                                (r_v1, g_v1, b_v1) = vertexColors[1]
-                                (r_v2, g_v2, b_v2) = vertexColors[2]
-            
-                                # Calculo de cor do ponto, de acordo com seu alpha beta gama e z 
-                                r_pixel = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
-                                g_pixel = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
-                                b_pixel = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
-
-                                # Atualizando cor apenas se z_buff for menor (mais na frente)
-                                if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
-                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
-                            elif hasTexture:
+                            if hasTexture:
                                 pesos = (alpha, beta, gama)
 
                                 # Coordenadas uv
@@ -490,22 +486,35 @@ class GL:
                                 # So para evitar valores negativos
                                 D = max(0, min(len(mipMaps), int(math.log2(L))))
 
-                                # Oi G, ate aqui foi da aula de revisao, mas o resto...
-                                # Foi fé (buscas na internet e pensando pra tentar ressolver)
-
                                 # Pega o ponto na textura, apos o resize 
                                 mipMap_h, mipMap_w, _ = mipMaps[D].shape
                                 tex_x = int(u * (mipMap_w  - 1))
                                 tex_y = int((1-v) * (mipMap_h - 1))     # Inverte v, pois no grafico da aula 'v' tem sentido oposto a y na tela
 
-                                # cv2.resive salva em bgr
-                                bgr = mipMaps[D][tex_x][tex_y]
-                                r_pixel = bgr[2]
-                                g_pixel = bgr[1]
-                                b_pixel = bgr[0]
+                                rgb = mipMaps[D][tex_x][tex_y]
+                                r_pixel = rgb[0]
+                                g_pixel = rgb[1]
+                                b_pixel = rgb[2]
 
-                                gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+                                gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel), int(g_pixel), int(b_pixel)]) 
+                            elif colorPerVertex:
+                                # Z para interpolação de cores
+                                z = 1/(alpha/w0 + beta/w1 + gama/w2)
 
+                                # Pega as cores dos vertices
+                                (r_v0, g_v0, b_v0) = vertexColors[0]
+                                (r_v1, g_v1, b_v1) = vertexColors[1]
+                                (r_v2, g_v2, b_v2) = vertexColors[2]
+            
+                                # Calculo de cor do ponto, de acordo com seu alpha beta gama e z 
+                                r_pixel = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
+                                g_pixel = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
+                                b_pixel = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
+
+                                # Atualizando cor apenas se z_buff for menor (mais na frente)
+                                if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
+                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
                             else:
                                 # Atualizando cor apenas se z_buff for menor (mais na frente)
                                 if z_buff < gpu.GPU.read_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F)[0]:
@@ -855,19 +864,6 @@ class GL:
         # cor da textura conforme a posição do mapeamento. Dentro da classe GPU já está
         # implementadado um método para a leitura de imagens.
 
-        # Os prints abaixo são só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("IndexedFaceSet : ")
-        # if colorPerVertex and color and colorIndex:
-        #     print("\tcores(r, g, b) = {0}, colorIndex = {1}".format(color, colorIndex))
-        # if texCoord and texCoordIndex:
-        #     print("\tpontos(u, v) = {0}, texCoordIndex = {1}".format(texCoord, texCoordIndex))
-        # if current_texture:
-        #     print("\t Matriz com image = {0}".format(image))
-        #     print("\t Dimensões da image = {0}".format(image.shape))
-        # print("IndexedFaceSet : colors = {0}".format(colors))  # imprime no terminal as cores
-        # print(f'Tamanho coord = {len(coord)}')
-        # print(f'Tamanho coordIndex = {len(coordIndex)}')
-
         hasTexture = 0
         img_shape = 0
         if current_texture:
@@ -889,17 +885,16 @@ class GL:
             z = coord[i+2]
             vertices.append((x, y, z))
 
-            if colorPerVertex:
-                r = color[i]
-                g = color[i+1]
-                b = color[i+2]
-                color_vert.append((r, g, b))
-
             if hasTexture:
                 u = texCoord[i_text]
                 v = texCoord[i_text+1]
                 text_pontos.append((u, v))
                 i_text += 2
+            elif colorPerVertex:
+                r = color[i]
+                g = color[i+1]
+                b = color[i+2]
+                color_vert.append((r, g, b))
 
 
         # print(f"\tpontos = {vertices}")
@@ -927,17 +922,16 @@ class GL:
                 p0 = GL.transform_3Dto2D(p0[0], p0[1], p0[2])
                 conexoes = [p0, -99, -99]
 
-                # Se pontos tiverem cor
-                if colorPerVertex:
-                    i_color = colorIndex[i]
-                    p0_cor = color_vert[i_color]  # Pega a cor do ponto 0
-                    con_color = [p0_cor, -99, -99]
-
                 # Pega as coord UV (textura) do P0
                 if hasTexture:
                     i_text = texCoordIndex[i]
                     p0_uv = text_pontos[i_text]
                     con_text = [p0_uv, -99, -99]
+                # Se pontos tiverem cor
+                elif colorPerVertex:
+                    i_color = colorIndex[i]
+                    p0_cor = color_vert[i_color]  # Pega a cor do ponto 0
+                    con_color = [p0_cor, -99, -99]
 
                 count = 1
                 reset = 0
@@ -951,17 +945,16 @@ class GL:
                 p1 = GL.transform_3Dto2D(p1[0], p1[1], p1[2])
                 conexoes[1] = p1
 
-                # Pega a cor do P1
-                if colorPerVertex:
-                    i_color = colorIndex[i]
-                    p1_cor = color_vert[i_color]
-                    con_color[1] = p1_cor
-
                 # Pega as coord UV (textura) do P1
                 if hasTexture:
                     i_text = texCoordIndex[i]
                     p1_uv = text_pontos[i_text]
                     con_text[1] = p1_uv
+                # Pega a cor do P1
+                elif colorPerVertex:
+                    i_color = colorIndex[i]
+                    p1_cor = color_vert[i_color]
+                    con_color[1] = p1_cor
                 
                 count += 1
             else:
@@ -969,7 +962,13 @@ class GL:
                 i_vertice = coordIndex[i]
                 p2 = vertices[i_vertice]
 
-                if colorPerVertex:
+                if hasTexture:
+                    i_text = texCoordIndex[i]
+                    p2_uv = text_pontos[i_text]
+
+                    # u = p2_uv[0]
+                    con_text[2] = p2_uv
+                elif colorPerVertex:
                     i_color = colorIndex[i]
                     p2_cor = color_vert[i_color]
     
@@ -978,13 +977,6 @@ class GL:
                     g = p2_cor[1]
                     b = p2_cor[2]
                     con_color[2] = (r, g, b)
-
-                if hasTexture:
-                    i_text = texCoordIndex[i]
-                    p2_uv = text_pontos[i_text]
-
-                    # u = p2_uv[0]
-                    con_text[2] = p2_uv
 
                 # Pega o Ponto P2 e transforma para "2D"
                 p2 = GL.transform_3Dto2D(p2[0], p2[1], p2[2])
@@ -1000,10 +992,11 @@ class GL:
                 # Arruma ordem para o próximo
                 conexoes[1] = p2
 
-                if colorPerVertex:
-                    con_color[1] = p2_cor
                 if hasTexture:
                     con_text[1] = p2_uv
+                elif colorPerVertex:
+                    con_color[1] = p2_cor
+                
                 count += 1
 
     @staticmethod
