@@ -15,7 +15,6 @@ import time         # Para operações com tempo
 import gpu          # Simula os recursos de uma GPU
 import math         # Funções matemáticas
 import numpy as np  # Biblioteca do Numpy
-import cv2
 
 class GL:
     """Classe que representa a biblioteca gráfica (Graphics Library)."""
@@ -40,10 +39,17 @@ class GL:
     last_matrix = np.identity(4)
 
     # Supersampling (anti-aliasing)
-    supersampling_active = True
+    supersampling_active = False
     supersampling_size = 2
     if not supersampling_active:
         supersampling_size = 1
+
+    # Iluminação (Headlight e AmbientLight)
+    headlight = False
+    head_intensity = 0
+    ambientInstensity = 0.0
+    head_color = (1, 1, 1)
+    head_direction = (0, 0, -1)
 
     @staticmethod
     def setup(width, height, near=0.01, far=1000):
@@ -429,13 +435,22 @@ class GL:
             plus_x = [0.25, 0.75]
             plus_y = [0.25, 0.75]
 
-        print(textShape)
-
         for w in range(max(int(min_x), 0), min(round(max_x) + 1, GL.width)):
             for h in range(max(int(min_y), 0), min(round(max_y) + 1, GL.height)):
                 for pl_x in plus_x:
                     for pl_y in plus_y:
                         if inside(lista_pontos, w + pl_x, h + pl_y):
+                            if GL.headlight:
+                                # Pontos 
+                                p0 = lista_pontos[0]
+                                p1 = lista_pontos[1]
+                                p2 = lista_pontos[2]
+
+                                # Vetor normal do triângulo
+                                v0 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
+                                v1 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
+                                vec_normal = np.cross(v0, v1)
+
                             # Fórmulas das Coordenadas Baricêntricas
                             (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
 
@@ -496,8 +511,9 @@ class GL:
                                 g_pixel = rgb[1]
                                 b_pixel = rgb[2]
 
-                                gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel), int(g_pixel), int(b_pixel)]) 
+                                gpu.GPU.draw_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.RGB8, [int(r_pixel), int(g_pixel), int(b_pixel)]) 
                             elif colorPerVertex:
+
                                 # Z para interpolação de cores
                                 z = 1/(alpha/w0 + beta/w1 + gama/w2)
 
@@ -512,9 +528,9 @@ class GL:
                                 b_pixel = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
 
                                 # Atualizando cor apenas se z_buff for menor (mais na frente)
-                                if z_buff < gpu.GPU.read_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
-                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                                    gpu.GPU.draw_pixel([w, h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+                                if z_buff < gpu.GPU.read_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
                             else:
                                 # Atualizando cor apenas se z_buff for menor (mais na frente)
                                 if z_buff < gpu.GPU.read_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F)[0]:
@@ -538,9 +554,12 @@ class GL:
                                         g_final = min(1, old_g + new_g)
                                         b_final = min(1, old_b + new_b)
 
+                                    # Ajuste de Iluminação
+                                    
+                                    pass
+
                                     gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [r_final*255, g_final*255, b_final*255])  
-                                    print("- ", GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y), "\n")      
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [r_final*255, g_final*255, b_final*255])        
 
     @staticmethod
     def triangleSet2D(vertices, colors):
@@ -561,9 +580,9 @@ class GL:
         for i in range(0, len(vertices), 2):
             # lista_pontos.append([int(vertices[i]), int(vertices[i+1])])
             lista_pontos_float.append([vertices[i], vertices[i+1], 0.5, 1])
-        print(lista_pontos_float)
+        # print(lista_pontos_float)
         for i in range(0, len(lista_pontos_float), 3):
-            print(lista_pontos_float[i:(i+3)])
+            # print(lista_pontos_float[i:(i+3)])
             GL.draw_triangle(lista_pontos_float[i:(i+3)], r, g, b)
 
     def transform_3Dto2D(x_3d, y_3d, z_3d):
@@ -866,13 +885,14 @@ class GL:
 
         hasTexture = 0
         img_shape = 0
+        image = []
         if current_texture:
             image = gpu.GPU.load_texture(current_texture[0])
             img_shape = image.shape
             hasTexture = 1
 
-        # print(f'colorPerVertex = {colorPerVertex}')
-        # print(f'current_texture = {current_texture}')
+        if colorPerVertex and not color:
+            colorPerVertex = False
 
         # Cria uma lista com os pontos
         vertices = []
@@ -1073,8 +1093,18 @@ class GL:
         # A luz headlight deve ser direcional, ter intensidade = 1, cor = (1 1 1),
         # ambientIntensity = 0,0 e direção = (0 0 −1).
 
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
+        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO. 
         # print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
+
+        GL.headlight = headlight
+
+        if headlight:
+            GL.head_intensity = 1           # Intensidade da Headlight
+            GL.head_color = (1, 1, 1)       # Color
+            GL.ambientInstensity = 0.0      # ambientIntensity
+            GL.head_direction = (0, 0, -1)  # Direção da Headlight
+            
+            pass
 
     @staticmethod
     def directionalLight(ambientIntensity, color, intensity, direction):
@@ -1159,6 +1189,33 @@ class GL:
         # quadros-chave no key. O campo closed especifica se o interpolador deve tratar a malha
         # como fechada, com uma transições da última chave para a primeira chave. Se os keyValues
         # na primeira e na última chave não forem idênticos, o campo closed será ignorado.
+
+        if set_fraction == 0:
+            return keyValue[0:3]
+        
+        if set_fraction == 1:
+            return keyValue[-3:]
+
+        # encontrando os dois keys para usar na interpolacao:
+        for i, k in enumerate(key):
+            if set_fraction < k:
+                i0 = i - 1
+                i1 = i
+                break
+
+        h0 = keyValue[i0]
+        h1 = keyValue[i1]
+
+        p0_0 = (keyValue[(i0 - 1) * len(key)], keyValue[(i0 - 1) * len(key) + 1], keyValue[(i0 - 1) * len(key) + 2])
+        p1_0 = (keyValue[(i0 - 1) * len(key)], keyValue[(i0 + 1) * len(key) + 1], keyValue[(i0 + 1) * len(key) + 2])
+        d0 = (p1_0[1] - p0_0[1]) / 2
+        h2 = d0
+
+        p0_1 = (keyValue[(i1 - 1) * len(key)], keyValue[(i1 - 1) * len(key) + 1], keyValue[(i1 - 1) * len(key) + 2])
+        p1_1 = (keyValue[(i1 - 1) * len(key)], keyValue[(i1 + 1) * len(key) + 1], keyValue[(i1 + 1) * len(key) + 2])
+        d1 = (p1_1[1] - p0_1[1]) / 2
+        h3 = d1
+        
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("SplinePositionInterpolator : set_fraction = {0}".format(set_fraction))

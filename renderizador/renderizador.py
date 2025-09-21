@@ -60,7 +60,6 @@ class Renderizador:
         if gl.GL.supersampling_active:
             buffer_w *= gl.GL.supersampling_size
             buffer_h *= gl.GL.supersampling_size
-        print(buffer_w, buffer_h)
 
         # Memória de Framebuffer para canal de cores
         gpu.GPU.framebuffer_storage(
