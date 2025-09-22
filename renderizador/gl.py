@@ -511,7 +511,7 @@ class GL:
                                 g_pixel = rgb[1]
                                 b_pixel = rgb[2]
 
-                                gpu.GPU.draw_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.RGB8, [int(r_pixel), int(g_pixel), int(b_pixel)]) 
+                                gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [int(r_pixel), int(g_pixel), int(b_pixel)]) 
                             elif colorPerVertex:
 
                                 # Z para interpolação de cores
@@ -528,9 +528,9 @@ class GL:
                                 b_pixel = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
 
                                 # Atualizando cor apenas se z_buff for menor (mais na frente)
-                                if z_buff < gpu.GPU.read_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.DEPTH_COMPONENT32F)[0]:
-                                    gpu.GPU.draw_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                                    gpu.GPU.draw_pixel([GL.supersampling_size * w, GL.supersampling_size * h], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
+                                if z_buff < gpu.GPU.read_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F)[0]:
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [int(r_pixel*255), int(g_pixel*255), int(b_pixel*255)]) 
                             else:
                                 # Atualizando cor apenas se z_buff for menor (mais na frente)
                                 if z_buff < gpu.GPU.read_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F)[0]:
@@ -1203,19 +1203,57 @@ class GL:
                 i1 = i
                 break
 
+        # t = set_fraction
+
         h0 = keyValue[i0]
         h1 = keyValue[i1]
 
-        p0_0 = (keyValue[(i0 - 1) * len(key)], keyValue[(i0 - 1) * len(key) + 1], keyValue[(i0 - 1) * len(key) + 2])
-        p1_0 = (keyValue[(i0 - 1) * len(key)], keyValue[(i0 + 1) * len(key) + 1], keyValue[(i0 + 1) * len(key) + 2])
-        d0 = (p1_0[1] - p0_0[1]) / 2
-        h2 = d0
+        t = (set_fraction - h0) / (h1 - h0)
 
-        p0_1 = (keyValue[(i1 - 1) * len(key)], keyValue[(i1 - 1) * len(key) + 1], keyValue[(i1 - 1) * len(key) + 2])
-        p1_1 = (keyValue[(i1 - 1) * len(key)], keyValue[(i1 + 1) * len(key) + 1], keyValue[(i1 + 1) * len(key) + 2])
-        d1 = (p1_1[1] - p0_1[1]) / 2
-        h3 = d1
+        S = np.array([t**3], [t**2], [t], [1])
+
+        H = np.array(
+            [2, -2, 1, 1],
+            [-3, 3, -2, -1],
+            [0, 0, 1, 0],
+            [1, 0, 0, 0]
+        )
+
+        p0_0 = (keyValue[(i0 - 1) * 3], keyValue[(i0 - 1) * 3 + 1], keyValue[(i0 - 1) * 3 + 2])
+        p1_0 = (keyValue[(i0 - 1) * 3], keyValue[(i0 + 1) * 3 + 1], keyValue[(i0 + 1) * 3 + 2])
+
+        p0_1 = (keyValue[(i1 - 1) * 3], keyValue[(i1 - 1) * 3 + 1], keyValue[(i1 - 1) * 3 + 2])
+        p1_1 = (keyValue[(i1 - 1) * 3], keyValue[(i1 + 1) * 3 + 1], keyValue[(i1 + 1) * 3 + 2])
+
+        d0_x = (p1_0[0] - p0_0[0]) / 2
+        h2 = d0_x
+        d1_x = (p1_1[0] - p0_1[0]) / 2
+        h3 = d1_x
         
+        x = h0 * (2*t**3 - 3*t**2 + 1) + \
+            h1 * (-2*t**3 + 3*t**2) + \
+            h2 * (t**3 -2*t**2 + t) + \
+            h3 * (t**3 - t**2)
+
+        d0_y = (p1_0[1] - p0_0[1]) / 2
+        h2 = d0_y
+        d1_y = (p1_1[1] - p0_1[1]) / 2
+        h3 = d1_y
+        
+        y = h0 * (2*t**3 - 3*t**2 + 1) + \
+            h1 * (-2*t**3 + 3*t**2) + \
+            h2 * (t**3 -2*t**2 + t) + \
+            h3 * (t**3 - t**2)
+        
+        d0_z = (p1_0[2] - p0_0[2]) / 2
+        h2 = d0_z
+        d1_z = (p1_1[2] - p0_1[2]) / 2
+        h3 = d1_z
+        
+        z = h0 * (2*t**3 - 3*t**2 + 1) + \
+            h1 * (-2*t**3 + 3*t**2) + \
+            h2 * (t**3 -2*t**2 + t) + \
+            h3 * (t**3 - t**2)
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("SplinePositionInterpolator : set_fraction = {0}".format(set_fraction))
@@ -1223,8 +1261,8 @@ class GL:
         print("SplinePositionInterpolator : keyValue = {0}".format(keyValue))
         print("SplinePositionInterpolator : closed = {0}".format(closed))
 
-        # Abaixo está só um exemplo de como os dados podem ser calculados e transferidos
-        value_changed = [0.0, 0.0, 0.0]
+        value_changed = [x, y, z]
+        print(value_changed)
         
         return value_changed
 
