@@ -484,17 +484,17 @@ class GL:
                                     ambient_i = diffuseColor[i]*GL.ambientIntensity
                                     diffuse_i = diffuseColor[i]*GL.light_intensity*NL
                                     specular_i = specularColor[i]*GL.light_intensity*NLv_Lv
-                                    print('_is: ', ambient_i, diffuse_i, specular_i)
+                                    # print('_is: ', ambient_i, diffuse_i, specular_i)
 
                                     soma_i = (ambient_i+diffuse_i+specular_i)*GL.light_color[i]
-                                    print('soma_i: ', soma_i)
+                                    # print('soma_i: ', soma_i)
                                     Irgb.append(soma_i*rgb[i])
 
                                 # Cores ajustadas segundo iluminação
-                                r = int(Irgb[0])
-                                g = int(Irgb[1])
-                                b = int(Irgb[2])
-                                print(r, g, b)
+                                # r = int(Irgb[0])
+                                # g = int(Irgb[1])
+                                # b = int(Irgb[2])
+                                # print(r, g, b)
 
                             # Fórmulas das Coordenadas Baricêntricas
                             (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
@@ -1071,6 +1071,7 @@ class GL:
                 p1 = conexoes[1]
 
                 # Faz o Triangulo
+                r, g, b = diffuseColor # ANTONIO TIRA ISSO AQUI DPS, BOTEI SO PRA TESTAR
                 GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture, textCoords=con_text,
                     textShape=img_shape, textImg=image, diffuseColor=diffuseColor, specularColor=specularColor,
                     shininess=shininess, transparencia=transparency)
@@ -1231,8 +1232,8 @@ class GL:
         # Deve retornar a fração de tempo passada em fraction_changed
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("TimeSensor : cycleInterval = {0}".format(cycleInterval)) # imprime no terminal
-        print("TimeSensor : loop = {0}".format(loop))
+        # print("TimeSensor : cycleInterval = {0}".format(cycleInterval)) # imprime no terminal
+        # print("TimeSensor : loop = {0}".format(loop))
 
         # Esse método já está implementado para os alunos como exemplo
         epoch = time.time()  # time in seconds since the epoch as a floating point number.
@@ -1252,6 +1253,12 @@ class GL:
         # como fechada, com uma transições da última chave para a primeira chave. Se os keyValues
         # na primeira e na última chave não forem idênticos, o campo closed será ignorado.
 
+        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
+        # print("SplinePositionInterpolator : set_fraction = {0}".format(set_fraction))
+        # print("SplinePositionInterpolator : key = {0}".format(key)) # imprime no terminal
+        # print("SplinePositionInterpolator : keyValue = {0}".format(keyValue))
+        # print("SplinePositionInterpolator : closed = {0}".format(closed))
+
         if set_fraction == 0:
             return keyValue[0:3]
         
@@ -1265,10 +1272,8 @@ class GL:
                 i1 = i
                 break
 
-        # t = set_fraction
-
         t = (set_fraction - key[i0]) / (key[i1] - key[i0])
-        print(t, set_fraction, key[i0], key[i1])
+        # print(t, set_fraction, key[i0], key[i1])
 
         S = np.transpose(np.array([[t**3], [t**2], [t], [1]]))
 
@@ -1288,11 +1293,11 @@ class GL:
             d0_y = 0
             d0_z = 0
         else:   
-            p0_0 = (keyValue[((i0 - 1) % len(key)) * 3], keyValue[((i0 - 1) % len(key)) * 3 + 1], keyValue[((i0 - 1) % len(key)) * 3 + 2])
-            p1_0 = (keyValue[((i0 + 1) % len(key)) * 3], keyValue[((i0 + 1) % len(key)) * 3 + 1], keyValue[((i0 + 1) % len(key)) * 3 + 2])
-            print(i0, (i0 - 1) % len(key), (i0 + 1) % len(key))
-            print(p0_0[0], p0_0[1], p0_0[2])
-            print(p1_0[0], p1_0[1], p1_0[2])
+            p0_0 = [keyValue[((i0 - 1) % len(key)) * 3], keyValue[((i0 - 1) % len(key)) * 3 + 1], keyValue[((i0 - 1) % len(key)) * 3 + 2]]
+            p1_0 = [keyValue[((i0 + 1) % len(key)) * 3], keyValue[((i0 + 1) % len(key)) * 3 + 1], keyValue[((i0 + 1) % len(key)) * 3 + 2]]
+            # print(i0, (i0 - 1) % len(key), (i0 + 1) % len(key))
+            # print(p0_0[0], p0_0[1], p0_0[2])
+            # print(p1_0[0], p1_0[1], p1_0[2])
 
             d0_x = (p1_0[0] - p0_0[0]) / 2
             d0_y = (p1_0[1] - p0_0[1]) / 2
@@ -1303,7 +1308,7 @@ class GL:
             d1_y = 0
             d1_z = 0
         else:
-            print(i1, (i1 - 1) % len(key), (i1 + 1) % len(key))
+            # print(i1, (i1 - 1) % len(key), (i1 + 1) % len(key))
             p0_1 = (keyValue[((i1 - 1) % len(key)) * 3], keyValue[((i1 - 1) % len(key)) * 3 + 1], keyValue[((i1 - 1) % len(key)) * 3 + 2])
             p1_1 = (keyValue[((i1 + 1) % len(key)) * 3], keyValue[((i1 + 1) % len(key)) * 3 + 1], keyValue[((i1 + 1) % len(key)) * 3 + 2])
             
@@ -1321,19 +1326,13 @@ class GL:
             p3
         ])
 
-        print(S)
-        print(H)
-        print(C)
+        # print(S)
+        # print(H)
+        # print(C)
 
         value_changed = S @ H @ C
 
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("SplinePositionInterpolator : set_fraction = {0}".format(set_fraction))
-        print("SplinePositionInterpolator : key = {0}".format(key)) # imprime no terminal
-        print("SplinePositionInterpolator : keyValue = {0}".format(keyValue))
-        print("SplinePositionInterpolator : closed = {0}".format(closed))
-
-        print(value_changed[0])
+        # print(value_changed[0])
         
         return value_changed[0]
 
@@ -1353,14 +1352,42 @@ class GL:
         # quadros-chave no key.
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("OrientationInterpolator : set_fraction = {0}".format(set_fraction))
-        print("OrientationInterpolator : key = {0}".format(key)) # imprime no terminal
-        print("OrientationInterpolator : keyValue = {0}".format(keyValue))
+        # print("OrientationInterpolator : set_fraction = {0}".format(set_fraction))
+        # print("OrientationInterpolator : key = {0}".format(key)) # imprime no terminal
+        # print("OrientationInterpolator : keyValue = {0}".format(keyValue))
 
-        # Abaixo está só um exemplo de como os dados podem ser calculados e transferidos
-        value_changed = [0, 0, 1, 0]
+        # if set_fraction == 0:
+        #     return keyValue[0:4]
+        
+        # if set_fraction == 1:
+        #     return keyValue[-4:]
 
-        return value_changed
+        # encontrando os dois keys para usar na interpolacao:
+        for i, k in enumerate(key):
+            if set_fraction < k:
+                i0 = i - 1
+                i1 = i
+                break
+
+        p0 = [keyValue[i0 * 4], keyValue[i0 * 4 + 1], keyValue[i0 * 4 + 2], keyValue[i0 * 4 + 3]]
+        p1 = [keyValue[i1 * 4], keyValue[i1 * 4 + 1], keyValue[i1 * 4 + 2], keyValue[i1 * 4 + 3]]
+
+        # print(p0)
+        # print(p1)
+        orientation = [p0[i] + set_fraction * (p1[i] - p0[i])/(key[i1] - key[i0]) for i in range(len(p0))]
+        # print(orientation)
+        qi = orientation[0] * math.sin(orientation[3]/2)
+        qj = orientation[1] * math.sin(orientation[3]/2)
+        qk = orientation[2] * math.sin(orientation[3]/2)
+        qr = math.cos(orientation[3]/2)
+        M = np.array([
+            [1 - 2*(qj**2 + qk**2), 2*(qi*qj - qk*qr), 2*(qi*qk + qj*qr), 0],
+            [2*(qi*qj + qk*qr), 1 - 2*(qi**2 + qk**2), 2*(qj*qk - qi*qr), 0],
+            [2*(qi*qk - qj*qr), 2*(qj*qk + qi*qr), 1 - 2*(qi**2 + qj**2), 0],
+            [0, 0, 0, 1]
+        ])
+        
+        return orientation
 
     # Para o futuro (Não para versão atual do projeto.)
     def vertex_shader(self, shader):
