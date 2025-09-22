@@ -44,12 +44,15 @@ class GL:
     if not supersampling_active:
         supersampling_size = 1
 
+    # Camera
+    cam_direction = (0, 0, -1)
+
     # Iluminação (Headlight e AmbientLight)
-    headlight = False
-    head_intensity = 0
+    hasLight = False
+    light_intensity = 0
     ambientInstensity = 0.0
-    head_color = (1, 1, 1)
-    head_direction = (0, 0, -1)
+    light_color = (1, 1, 1)
+    light_direction = (0, 0, -1)
 
     @staticmethod
     def setup(width, height, near=0.01, far=1000):
@@ -378,7 +381,8 @@ class GL:
         return mipMaps
 
     def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None, transparencia=1, 
-        hasTexture=False, textCoords=None, textShape=(0,0), textImg=None
+        hasTexture=False, textCoords=None, textShape=(0,0), textImg=None, diffuseColor=(1,1,1), specularColor=(1,1,1),
+        shininess = 1
     ):
         def inside(triangle, x, y):
             # print()
@@ -398,15 +402,18 @@ class GL:
         # Coordenadas do Baricentro (soma no 'for' e dps faz a media aritmetica)
         xG = 0
         yG = 0
+        zG = 0
 
         # Desenha os vertices do triangulo
         for i in range(3):
             x = lista_pontos[i][0]       # x do vertice
             y = lista_pontos[i][1]       # y do vertice
+            z = lista_pontos[i][2]       # z do vertice
 
             # Adiciona para o Baricentro
             xG += x
             yG += y
+            zG += z
             
             if colorPerVertex:
                 r_pnt = vertexColors[i][0]
@@ -419,10 +426,12 @@ class GL:
 
         # for i in range(len(lista_pontos)):
             # GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
+        
         if colorPerVertex:
             # Termina a media aritmetica do Baricentro
             xG = xG/3
-            yG = yG/3   
+            yG = yG/3 
+            zG = zG/3
 
         min_x = min(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
         max_x = max(lista_pontos[0][0], lista_pontos[1][0], lista_pontos[2][0])
@@ -440,7 +449,8 @@ class GL:
                 for pl_x in plus_x:
                     for pl_y in plus_y:
                         if inside(lista_pontos, w + pl_x, h + pl_y):
-                            if GL.headlight:
+                            # Se navigationInfo (headlight = True)
+                            if GL.hasLight:
                                 # Pontos 
                                 p0 = lista_pontos[0]
                                 p1 = lista_pontos[1]
@@ -450,6 +460,12 @@ class GL:
                                 v0 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
                                 v1 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
                                 vec_normal = np.cross(v0, v1)
+
+                                # Vetor L (contrario a direcao da luz)
+                                L = (-GL.light_direction[0], -GL.light_direction[1], -GL.light_direction[2])
+
+                                # Vetor v (contrario a camera)
+                                v = (-GL.cam_direction[0], -GL.cam_direction[1], -GL.cam_direction[2])
 
                             # Fórmulas das Coordenadas Baricêntricas
                             (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
@@ -464,6 +480,15 @@ class GL:
                             w2 = lista_pontos[2][3]
                             listaW = (w0, w1, w2)
                             
+                            #
+                            #
+                            #
+                            # Nao esquecer de usar Coeficiente de difusão depois
+                            #
+                            #
+                            #
+
+
                             if hasTexture:
                                 pesos = (alpha, beta, gama)
 
@@ -649,12 +674,18 @@ class GL:
 
         transparency = colors["transparency"]
         r, g, b = colors["emissiveColor"]
+
+        # Caracteristicas do material
+        diffuseColor = colors["diffuseColor"]
+        specularColor = colors["specularColor"]
+        shininess = colors["shininess"]
+
         lista_pontos = []
         for i in range(0, len(point), 3):
             lista_pontos.append(GL.transform_3Dto2D(point[i], point[i + 1], point[i + 2]))
             
         for i in range(0, len(lista_pontos), 3):
-            GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b, transparencia=transparency)
+            GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b, transparencia=transparency, diffuseColor=diffuseColor, specularColor=specularColor, shininess=shininess)
 
     @staticmethod
     def viewpoint(position, orientation, fieldOfView):
@@ -711,6 +742,7 @@ class GL:
         # indicando a escala em cada direção, a translação [x, y, z] nas respectivas
         # coordenadas e finalmente a rotação por [x, y, z, t] sendo definida pela rotação
         # do objeto ao redor do eixo x, y, z por t radianos, seguindo a regra da mão direita.
+        # ESSES NÃO SÃO OS VALORES DE QUATÉRNIOS AS CONTAS AINDA PRECISAM SER FEITAS.
         # Quando se entrar em um nó transform se deverá salvar a matriz de transformação dos
         # modelos do mundo para depois potencialmente usar em outras chamadas. 
         # Quando começar a usar Transforms dentre de outros Transforms, mais a frente no curso
@@ -788,15 +820,16 @@ class GL:
         # primeiro triângulo será com os vértices 0, 1 e 2, depois serão os vértices 1, 2 e 3,
         # depois 2, 3 e 4, e assim por diante. Cuidado com a orientação dos vértices, ou seja,
         # todos no sentido horário ou todos no sentido anti-horário, conforme especificado.
-
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        # print("TriangleStripSet : pontos = {0} ".format(point), end='')
-        # for i, strip in enumerate(stripCount):
-        #     print("strip[{0}] = {1} ".format(i, strip), end='')
-        # print("")
-        # print("TriangleStripSet : colors = {0}".format(colors)) # imprime no terminal as cores
-
+        
+        # Pega as cores default
         r, g, b = colors["emissiveColor"]
+        transparency = colors["transparency"]
+
+        # Caracteristicas do material
+        diffuseColor = colors["diffuseColor"]
+        specularColor = colors["specularColor"]
+        shininess = colors["shininess"]
+
         for i, strip in enumerate(stripCount):
             for j in range(strip-2):
                 idx_0 = 3*i + j 
@@ -810,7 +843,8 @@ class GL:
                 p1 = GL.transform_3Dto2D(point[3*idx_1], point[3*idx_1 + 1], point[3*idx_1 + 2])
                 p2 = GL.transform_3Dto2D(point[3*idx_2], point[3*idx_2 + 1], point[3*idx_2 + 2])
 
-                GL.draw_triangle([p0, p1, p2], r, g, b)
+                GL.draw_triangle([p0, p1, p2], r, g, b, diffuseColor=diffuseColor, specularColor=specularColor,
+                    shininess=shininess, transparencia=transparency)
 
         # Exemplo de desenho de um pixel branco na coordenada 10, 10
         # gpu.GPU.draw_pixel([10, 10], gpu.GPU.RGB8, [255, 255, 255])  # altera pixel
@@ -835,7 +869,15 @@ class GL:
         # print("IndexedTriangleStripSet : pontos = {0}, index = {1}".format(point, index))
         # print("IndexedTriangleStripSet : colors = {0}".format(colors)) # imprime as cores
 
+        # Pega as cores default
         r, g, b = colors["emissiveColor"]
+        transparency = colors["transparency"]
+
+        # Caracteristicas do material
+        diffuseColor = colors["diffuseColor"]
+        specularColor = colors["specularColor"]
+        shininess = colors["shininess"]
+
         count_reset = 0
         for i in range(len(index)):
             if (i + 2) == len(index):
@@ -855,7 +897,8 @@ class GL:
                 p1 = GL.transform_3Dto2D(point[3*idx_1], point[3*idx_1 + 1], point[3*idx_1 + 2])
                 p2 = GL.transform_3Dto2D(point[3*idx_2], point[3*idx_2 + 1], point[3*idx_2 + 2])
 
-                GL.draw_triangle([p0, p1, p2], r, g, b)
+                GL.draw_triangle([p0, p1, p2], r, g, b,  diffuseColor=diffuseColor, specularColor=specularColor,
+                    shininess=shininess, transparencia=transparency)
                 count_reset = 0
 
     @staticmethod
@@ -922,6 +965,12 @@ class GL:
 
         # Pega as cores default
         r, g, b = colors["emissiveColor"]
+        transparency = colors["transparency"]
+
+        # Caracteristicas do material
+        diffuseColor = colors["diffuseColor"]
+        specularColor = colors["specularColor"]
+        shininess = colors["shininess"]
     
         # Exemplo: 0, 1, 2, 3, 4, -1
         # Primeiro -> 0, 1, 2
@@ -1007,7 +1056,8 @@ class GL:
 
                 # Faz o Triangulo
                 GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture, textCoords=con_text,
-                    textShape=img_shape, textImg=image)
+                    textShape=img_shape, textImg=image, diffuseColor=diffuseColor, specularColor=specularColor,
+                    shininess=shininess, transparencia=transparency)
 
                 # Arruma ordem para o próximo
                 conexoes[1] = p2
@@ -1093,18 +1143,13 @@ class GL:
         # A luz headlight deve ser direcional, ter intensidade = 1, cor = (1 1 1),
         # ambientIntensity = 0,0 e direção = (0 0 −1).
 
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO. 
-        # print("NavigationInfo : headlight = {0}".format(headlight)) # imprime no terminal
-
-        GL.headlight = headlight
+        GL.hasLight = headlight
 
         if headlight:
-            GL.head_intensity = 1           # Intensidade da Headlight
-            GL.head_color = (1, 1, 1)       # Color
-            GL.ambientInstensity = 0.0      # ambientIntensity
-            GL.head_direction = (0, 0, -1)  # Direção da Headlight
-            
-            pass
+            GL.light_intensity = 1                  # Intensidade da Headlight
+            GL.light_color = (1, 1, 1)              # Color
+            GL.ambientInstensity = 0.0              # ambientIntensity
+            GL.light_direction = GL.cam_direction   # Direção da Headlight
 
     @staticmethod
     def directionalLight(ambientIntensity, color, intensity, direction):
@@ -1116,11 +1161,12 @@ class GL:
         # que emana da fonte de luz no sistema de coordenadas local. A luz é emitida ao
         # longo de raios paralelos de uma distância infinita.
 
-        # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
-        print("DirectionalLight : ambientIntensity = {0}".format(ambientIntensity))
-        print("DirectionalLight : color = {0}".format(color)) # imprime no terminal
-        print("DirectionalLight : intensity = {0}".format(intensity)) # imprime no terminal
-        print("DirectionalLight : direction = {0}".format(direction)) # imprime no terminal
+        if intensity > 0:
+            GL.hasLight = True
+            GL.ambientIntensity = ambientIntensity
+            GL.light_color = (color[0], color[1], color[2])
+            GL.light_intensity = intensity
+            GL.light_direction = (direction[0], direction[1], direction[2])
 
     @staticmethod
     def pointLight(ambientIntensity, color, intensity, location):
