@@ -50,9 +50,11 @@ class GL:
     # Iluminação (Headlight e AmbientLight)
     hasLight = False
     light_intensity = 0
+    light_ambientIntensity = 0.0
     ambientIntensity = 0.0
     light_color = (1, 1, 1)
     light_direction = (0, 0, -1)
+    expoente_reflex_espec = 0.2
 
     @staticmethod
     def setup(width, height, near=0.01, far=1000):
@@ -379,6 +381,9 @@ class GL:
             h //= 2
 
         return mipMaps
+    
+    def calcula_normais(pontos):
+        pass
 
     def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None, transparencia=1, 
         hasTexture=False, textCoords=None, textShape=(0,0), textImg=None, diffuseColor=(1,1,1), specularColor=(1,1,1),
@@ -449,53 +454,6 @@ class GL:
                 for pl_x in plus_x:
                     for pl_y in plus_y:
                         if inside(lista_pontos, w + pl_x, h + pl_y):
-                            # Se navigationInfo (headlight = True)
-                            if GL.hasLight:
-                                # Pontos 
-                                p0 = lista_pontos[0]
-                                p1 = lista_pontos[1]
-                                p2 = lista_pontos[2]
-
-                                # Vetor normal do triângulo
-                                v0 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
-                                v1 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
-                                vec_normal = np.cross(v0, v1)
-                                vec_normal /= np.linalg.norm(vec_normal)
-
-                                # Vetor L (contrario a direcao da luz)
-                                L = (-GL.light_direction[0], -GL.light_direction[1], -GL.light_direction[2])
-
-                                # Vetor v (contrario a camera)
-                                v = (-GL.cam_direction[0], -GL.cam_direction[1], -GL.cam_direction[2])
-
-                                # Produto escalar
-                                NL = np.dot(vec_normal, L)
-
-                                Lv_Lv = [0, 0, 0]
-                                for i in range(3):
-                                    if (L[i] + v[i]) != 0:
-                                        Lv_Lv[i] = (L[i] + v[i])/abs(L[i] + v[i])
-                                NLv_Lv = np.dot(vec_normal, Lv_Lv)
-                                
-                                # Calcula a cor do pixel
-                                Irgb = []
-                                rgb = [r, g, b]
-                                for i in range(3):
-                                    ambient_i = diffuseColor[i]*GL.ambientIntensity
-                                    diffuse_i = diffuseColor[i]*GL.light_intensity*NL
-                                    specular_i = specularColor[i]*GL.light_intensity*NLv_Lv
-                                    # print('_is: ', ambient_i, diffuse_i, specular_i)
-
-                                    soma_i = (ambient_i+diffuse_i+specular_i)*GL.light_color[i]
-                                    # print('soma_i: ', soma_i)
-                                    Irgb.append(soma_i*rgb[i])
-
-                                # Cores ajustadas segundo iluminação
-                                # r = int(Irgb[0])
-                                # g = int(Irgb[1])
-                                # b = int(Irgb[2])
-                                # print(r, g, b)
-
                             # Fórmulas das Coordenadas Baricêntricas
                             (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
 
@@ -508,6 +466,67 @@ class GL:
                             w1 = lista_pontos[1][3]
                             w2 = lista_pontos[2][3]
                             listaW = (w0, w1, w2)
+
+                            # if GL.hasLight:
+                                # # Distancia camera -> pixel
+                                # cx, cy, cz = (0, 0, 0)      # Posicao da camera (default)
+                                # px, py, pz = (w, h, 1/(alpha/w0 + beta/w1 + gama/w2))
+                                # r_dist = math.sqrt( (cx - px)**2 + (cy - py)**2 + (cz - pz)**2)
+
+                            #     Ls = 0
+
+                            # Se navigationInfo (headlight = True)
+                            if GL.hasLight:
+                                # Pontos 
+                                p0 = lista_pontos[0]
+                                p1 = lista_pontos[1]
+                                p2 = lista_pontos[2]
+
+                                # Vetor normal do triângulo
+                                v0 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
+                                v1 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
+                                N = np.cross(v1, v0)
+                                N /= np.linalg.norm(N)
+                                # print('normal: ', N)
+
+                                # Vetor L (contrario a direcao da luz)
+                                L = -np.array(GL.light_direction)
+                                L = L / np.linalg.norm(L)
+                                # print('L: ', L)
+
+                                # Vetor v (contrario a camera)
+                                v = -np.array(GL.cam_direction)
+                                v = v / np.linalg.norm(v)
+                                # print('v: ', v)
+
+                                # Produto escalar
+                                NL = np.dot(N, L)
+                                # print('NL: ', NL)
+
+                                # Bissetriz
+                                Lv_Lv = (L + v) / np.linalg.norm(L + v)
+                                NLv_Lv = np.dot(N, Lv_Lv)
+                                # print('NLv_Lv: ', NLv_Lv)
+
+                                # Calcula a cor do pixel
+                                Irgb = []
+                                rgb = [r, g, b]
+                                for i in range(3):
+                                    ambient_i = diffuseColor[i]*GL.light_ambientIntensity*GL.ambientIntensity
+                                    diffuse_i = diffuseColor[i]*GL.light_intensity*max(NL, 0)
+                                    specular_i = specularColor[i]*GL.light_intensity*(max(NLv_Lv, 0)**(shininess*128))
+                                    # print('_is: ', ambient_i, diffuse_i, specular_i)
+
+                                    soma_i = GL.light_color[i] * (ambient_i+diffuse_i+specular_i)
+                                    # print('soma_i: ', soma_i)
+                                    Irgb.append(rgb[i] + soma_i)
+
+                                # Cores ajustadas segundo iluminação
+                                r = int(max(Irgb[0], 0))
+                                g = int(max(Irgb[1], 0))
+                                b = int(max(Irgb[2], 0))
+                                # print('rgb: ', r, g, b)
+                                # print()
                             
                             if hasTexture:
                                 pesos = (alpha, beta, gama)
@@ -695,7 +714,7 @@ class GL:
         diffuseColor = colors["diffuseColor"]
         specularColor = colors["specularColor"]
         shininess = colors["shininess"]
-
+        
         lista_pontos = []
         for i in range(0, len(point), 3):
             lista_pontos.append(GL.transform_3Dto2D(point[i], point[i + 1], point[i + 2]))
@@ -975,10 +994,6 @@ class GL:
                 b = color[i+2]
                 color_vert.append((r, g, b))
 
-
-        # print(f"\tpontos = {vertices}")
-        # print(f"\tcoordIndex = {coordIndex}")
-
         # Pega as cores default
         r, g, b = colors["emissiveColor"]
         transparency = colors["transparency"]
@@ -1180,7 +1195,7 @@ class GL:
 
         if intensity > 0:
             GL.hasLight = True
-            GL.ambientIntensity = ambientIntensity
+            GL.light_ambientIntensity = ambientIntensity
             GL.light_color = (color[0], color[1], color[2])
             GL.light_intensity = intensity
             GL.light_direction = (direction[0], direction[1], direction[2])
