@@ -50,7 +50,7 @@ class GL:
     # Iluminação (Headlight e AmbientLight)
     hasLight = False
     light_intensity = 0
-    ambientInstensity = 0.0
+    ambientIntensity = 0.0
     light_color = (1, 1, 1)
     light_direction = (0, 0, -1)
 
@@ -460,12 +460,41 @@ class GL:
                                 v0 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
                                 v1 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
                                 vec_normal = np.cross(v0, v1)
+                                vec_normal /= np.linalg.norm(vec_normal)
 
                                 # Vetor L (contrario a direcao da luz)
                                 L = (-GL.light_direction[0], -GL.light_direction[1], -GL.light_direction[2])
 
                                 # Vetor v (contrario a camera)
                                 v = (-GL.cam_direction[0], -GL.cam_direction[1], -GL.cam_direction[2])
+
+                                # Produto escalar
+                                NL = np.dot(vec_normal, L)
+
+                                Lv_Lv = [0, 0, 0]
+                                for i in range(3):
+                                    if (L[i] + v[i]) != 0:
+                                        Lv_Lv[i] = (L[i] + v[i])/abs(L[i] + v[i])
+                                NLv_Lv = np.dot(vec_normal, Lv_Lv)
+                                
+                                # Calcula a cor do pixel
+                                Irgb = []
+                                rgb = [r, g, b]
+                                for i in range(3):
+                                    ambient_i = diffuseColor[i]*GL.ambientIntensity
+                                    diffuse_i = diffuseColor[i]*GL.light_intensity*NL
+                                    specular_i = specularColor[i]*GL.light_intensity*NLv_Lv
+                                    print('_is: ', ambient_i, diffuse_i, specular_i)
+
+                                    soma_i = (ambient_i+diffuse_i+specular_i)*GL.light_color[i]
+                                    print('soma_i: ', soma_i)
+                                    Irgb.append(soma_i*rgb[i])
+
+                                # Cores ajustadas segundo iluminação
+                                r = int(Irgb[0])
+                                g = int(Irgb[1])
+                                b = int(Irgb[2])
+                                print(r, g, b)
 
                             # Fórmulas das Coordenadas Baricêntricas
                             (alpha, beta, gama) = GL.calcula_alpha_beta_gama(lista_pontos, w, h)
@@ -480,15 +509,6 @@ class GL:
                             w2 = lista_pontos[2][3]
                             listaW = (w0, w1, w2)
                             
-                            #
-                            #
-                            #
-                            # Nao esquecer de usar Coeficiente de difusão depois
-                            #
-                            #
-                            #
-
-
                             if hasTexture:
                                 pesos = (alpha, beta, gama)
 
@@ -578,10 +598,6 @@ class GL:
                                         r_final = min(1, old_r + new_r)
                                         g_final = min(1, old_g + new_g)
                                         b_final = min(1, old_b + new_b)
-
-                                    # Ajuste de Iluminação
-                                    
-                                    pass
 
                                     gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
                                     gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [r_final*255, g_final*255, b_final*255])        
@@ -1148,7 +1164,7 @@ class GL:
         if headlight:
             GL.light_intensity = 1                  # Intensidade da Headlight
             GL.light_color = (1, 1, 1)              # Color
-            GL.ambientInstensity = 0.0              # ambientIntensity
+            GL.ambientIntensity = 0.0               # ambientIntensity
             GL.light_direction = GL.cam_direction   # Direção da Headlight
 
     @staticmethod
@@ -1251,55 +1267,65 @@ class GL:
 
         # t = set_fraction
 
-        h0 = keyValue[i0]
-        h1 = keyValue[i1]
+        t = (set_fraction - key[i0]) / (key[i1] - key[i0])
+        print(t, set_fraction, key[i0], key[i1])
 
-        t = (set_fraction - h0) / (h1 - h0)
+        S = np.transpose(np.array([[t**3], [t**2], [t], [1]]))
 
-        S = np.array([t**3], [t**2], [t], [1])
-
-        H = np.array(
+        H = np.array([
             [2, -2, 1, 1],
             [-3, 3, -2, -1],
             [0, 0, 1, 0],
             [1, 0, 0, 0]
-        )
+        ])
 
-        p0_0 = (keyValue[(i0 - 1) * 3], keyValue[(i0 - 1) * 3 + 1], keyValue[(i0 - 1) * 3 + 2])
-        p1_0 = (keyValue[(i0 - 1) * 3], keyValue[(i0 + 1) * 3 + 1], keyValue[(i0 + 1) * 3 + 2])
+        p0 = [keyValue[i0 * 3], keyValue[i0 * 3 + 1], keyValue[i0 * 3 + 2]]
+        p1 = [keyValue[i1 * 3], keyValue[i1 * 3 + 1], keyValue[i1 * 3 + 2]]
 
-        p0_1 = (keyValue[(i1 - 1) * 3], keyValue[(i1 - 1) * 3 + 1], keyValue[(i1 - 1) * 3 + 2])
-        p1_1 = (keyValue[(i1 - 1) * 3], keyValue[(i1 + 1) * 3 + 1], keyValue[(i1 + 1) * 3 + 2])
 
-        d0_x = (p1_0[0] - p0_0[0]) / 2
-        h2 = d0_x
-        d1_x = (p1_1[0] - p0_1[0]) / 2
-        h3 = d1_x
-        
-        x = h0 * (2*t**3 - 3*t**2 + 1) + \
-            h1 * (-2*t**3 + 3*t**2) + \
-            h2 * (t**3 -2*t**2 + t) + \
-            h3 * (t**3 - t**2)
+        if i0 - 1 < 0 and not closed:
+            d0_x = 0
+            d0_y = 0
+            d0_z = 0
+        else:   
+            p0_0 = (keyValue[((i0 - 1) % len(key)) * 3], keyValue[((i0 - 1) % len(key)) * 3 + 1], keyValue[((i0 - 1) % len(key)) * 3 + 2])
+            p1_0 = (keyValue[((i0 + 1) % len(key)) * 3], keyValue[((i0 + 1) % len(key)) * 3 + 1], keyValue[((i0 + 1) % len(key)) * 3 + 2])
+            print(i0, (i0 - 1) % len(key), (i0 + 1) % len(key))
+            print(p0_0[0], p0_0[1], p0_0[2])
+            print(p1_0[0], p1_0[1], p1_0[2])
 
-        d0_y = (p1_0[1] - p0_0[1]) / 2
-        h2 = d0_y
-        d1_y = (p1_1[1] - p0_1[1]) / 2
-        h3 = d1_y
-        
-        y = h0 * (2*t**3 - 3*t**2 + 1) + \
-            h1 * (-2*t**3 + 3*t**2) + \
-            h2 * (t**3 -2*t**2 + t) + \
-            h3 * (t**3 - t**2)
-        
-        d0_z = (p1_0[2] - p0_0[2]) / 2
-        h2 = d0_z
-        d1_z = (p1_1[2] - p0_1[2]) / 2
-        h3 = d1_z
-        
-        z = h0 * (2*t**3 - 3*t**2 + 1) + \
-            h1 * (-2*t**3 + 3*t**2) + \
-            h2 * (t**3 -2*t**2 + t) + \
-            h3 * (t**3 - t**2)
+            d0_x = (p1_0[0] - p0_0[0]) / 2
+            d0_y = (p1_0[1] - p0_0[1]) / 2
+            d0_z = (p1_0[2] - p0_0[2]) / 2
+
+        if i1 + 1 == len(key) and not closed:
+            d1_x = 0
+            d1_y = 0
+            d1_z = 0
+        else:
+            print(i1, (i1 - 1) % len(key), (i1 + 1) % len(key))
+            p0_1 = (keyValue[((i1 - 1) % len(key)) * 3], keyValue[((i1 - 1) % len(key)) * 3 + 1], keyValue[((i1 - 1) % len(key)) * 3 + 2])
+            p1_1 = (keyValue[((i1 + 1) % len(key)) * 3], keyValue[((i1 + 1) % len(key)) * 3 + 1], keyValue[((i1 + 1) % len(key)) * 3 + 2])
+            
+            d1_x = (p1_1[0] - p0_1[0]) / 2
+            d1_y = (p1_1[1] - p0_1[1]) / 2
+            d1_z = (p1_1[2] - p0_1[2]) / 2
+
+        p2 = [d0_x, d0_y, d0_z]
+        p3 = [d1_x, d1_y, d1_z]
+
+        C = np.array([
+            p0,
+            p1,
+            p2,
+            p3
+        ])
+
+        print(S)
+        print(H)
+        print(C)
+
+        value_changed = S @ H @ C
 
         # O print abaixo é só para vocês verificarem o funcionamento, DEVE SER REMOVIDO.
         print("SplinePositionInterpolator : set_fraction = {0}".format(set_fraction))
@@ -1307,10 +1333,9 @@ class GL:
         print("SplinePositionInterpolator : keyValue = {0}".format(keyValue))
         print("SplinePositionInterpolator : closed = {0}".format(closed))
 
-        value_changed = [x, y, z]
-        print(value_changed)
+        print(value_changed[0])
         
-        return value_changed
+        return value_changed[0]
 
     @staticmethod
     def orientationInterpolator(set_fraction, key, keyValue):
