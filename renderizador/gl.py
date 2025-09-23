@@ -49,8 +49,9 @@ class GL:
 
     # Iluminação (Headlight e AmbientLight)
     hasLight = False
+    headlight = False
     light_intensity = 0
-    light_ambientIntensity = 0.0
+    light_ambientIntensity = 0.2
     ambientIntensity = 0.0
     light_color = (0, 0, 0)
     light_direction = (0, 0, -1)
@@ -382,12 +383,35 @@ class GL:
 
         return mipMaps
     
-    def calcula_normais(pontos):
-        pass
+    def calcula_normais(lista_pontos, indices):
+        # Passa para np.array (fica mais facil)
+        lista_pontos = [np.array(v[:3], dtype=float) for v in lista_pontos]
+        normais = [np.array([0.0, 0.0, 0.0]) for _ in lista_pontos]
+        
+        for i in range(0, len(indices), 3):
+            i0, i1, i2 = indices[i], indices[i+1], indices[i+2]
+            p0, p1, p2 = lista_pontos[i0], lista_pontos[i1], lista_pontos[i2]
+
+            v0 = p1 - p0
+            v1 = p2 - p0
+            n = np.cross(v0, v1)
+
+            if np.linalg.norm(n) > 0:
+                n = n / np.linalg.norm(n)
+
+            normais[i0] += n
+            normais[i1] += n
+            normais[i2] += n
+
+        # Normaliza cada normal acumulada
+        normais = [n/np.linalg.norm(n) if np.linalg.norm(n) > 0 else n
+                        for n in normais]
+
+        return normais
 
     def draw_triangle(lista_pontos, r, g, b, colorPerVertex=False, vertexColors=None, transparencia=1, 
         hasTexture=False, textCoords=None, textShape=(0,0), textImg=None, diffuseColor=(1,1,1), specularColor=(1,1,1),
-        shininess = 1, emissiveColor = [0, 0, 0]
+        shininess = 1, emissiveColor = [0, 0, 0], vertexNormals=None
     ):
         def inside(triangle, x, y):
             # print()
@@ -451,54 +475,46 @@ class GL:
 
         # Se navigationInfo (headlight = True)
         if GL.hasLight:
-            # Pontos 
-            p0 = lista_pontos[0]
-            p1 = lista_pontos[1]
-            p2 = lista_pontos[2]
+            vertex_colors = []
+            for i, p in enumerate(lista_pontos):  
+                # Vetor Normal
+                N = vertexNormals[i]
+                N /= np.linalg.norm(N)
 
-            # Vetor normal do triângulo
-            v0 = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
-            v1 = (p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2])
-            N = np.cross(v1, v0)
-            N /= np.linalg.norm(N)
-            # print('normal: ', N)
+                # Vetor L (contrario a direcao da luz)
+                if GL.headlight:
+                    L = -np.array(GL.light_direction)
+                else:
+                    L = np.array(GL.light_direction)
+                L = L / np.linalg.norm(L)
 
-            # Vetor L (contrario a direcao da luz)
-            L = -np.array(GL.light_direction)
-            L = L / np.linalg.norm(L)
-            # print('L: ', L)
+                # Vetor v (contrario a camera)
+                v = -np.array(GL.cam_direction)
+                v = v / np.linalg.norm(v)
 
-            # Vetor v (contrario a camera)
-            v = -np.array(GL.cam_direction)
-            v = v / np.linalg.norm(v)
-            # print('v: ', v)
+                # Produto escalar
+                NL = np.dot(N, L)
 
-            # Produto escalar
-            NL = np.dot(N, L)
-            # print('NL: ', NL)
+                # Bissetriz
+                Lv_Lv = (L + v) / np.linalg.norm(L + v)
+                NLv_Lv = np.dot(N, Lv_Lv)
 
-            # Bissetriz
-            Lv_Lv = (L + v) / np.linalg.norm(L + v)
-            NLv_Lv = np.dot(N, Lv_Lv)
+                # Calcula a cor do pixel
+                Irgb = []
+                for i in range(3):
+                    ambient_i = diffuseColor[i]*max(0.2,GL.ambientIntensity)
+                    diffuse_i = diffuseColor[i]*GL.light_intensity*NL
+                    specular_i = 0.0
+                    if NL > 0:
+                        specular_i = specularColor[i]*GL.light_intensity*NLv_Lv**(shininess*128)
+                    # print('_is: ', ambient_i, diffuse_i, specular_i)
 
-            # Calcula a cor do pixel
-            Irgb = []
-            for i in range(3):
-                ambient_i = diffuseColor[i]*GL.light_ambientIntensity
-                diffuse_i = diffuseColor[i]*GL.light_intensity*NL
-                specular_i = specularColor[i]*GL.light_intensity*NLv_Lv**(shininess*128)
-                # print('_is: ', ambient_i, diffuse_i, specular_i)
+                    soma_i = GL.light_color[i] * (ambient_i+diffuse_i+specular_i)
+                    # print('soma_i: ', soma_i)
+                    Irgb.append(emissiveColor[i] + soma_i)
+                # Salva as cores do ponto
+                vertex_colors.append(Irgb)
 
-                soma_i = GL.light_color[i] * (ambient_i+diffuse_i+specular_i)
-                # print('soma_i: ', soma_i)
-                Irgb.append(emissiveColor[i] + soma_i)
-
-            # Cores ajustadas segundo iluminação
-            r = max(Irgb[0], 0)
-            g = max(Irgb[1], 0)
-            b = max(Irgb[2], 0)
-            print('rgb: ', r, g, b)
-            # print()
 
         for w in range(max(int(min_x), 0), min(round(max_x) + 1, GL.width)):
             for h in range(max(int(min_y), 0), min(round(max_y) + 1, GL.height)):
@@ -517,6 +533,19 @@ class GL:
                             w1 = lista_pontos[1][3]
                             w2 = lista_pontos[2][3]
                             listaW = (w0, w1, w2)
+
+                            if GL.hasLight:
+                                # Z para interpolação de cores
+                                z = 1/(alpha/w0 + beta/w1 + gama/w2)
+
+                                # Pega as cores dos vertices
+                                (r_v0, g_v0, b_v0) = vertex_colors[0]
+                                (r_v1, g_v1, b_v1) = vertex_colors[1]
+                                (r_v2, g_v2, b_v2) = vertex_colors[2]
+
+                                r = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
+                                g = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
+                                b = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
                             
                             if hasTexture:
                                 pesos = (alpha, beta, gama)
@@ -609,7 +638,7 @@ class GL:
                                         b_final = min(1, old_b + new_b)
 
                                     gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.DEPTH_COMPONENT32F, [z_buff])
-                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [r_final*255, g_final*255, b_final*255])        
+                                    gpu.GPU.draw_pixel([GL.supersampling_size * w + round(pl_x), GL.supersampling_size * h + round(pl_y)], gpu.GPU.RGB8, [int(r_final*255), int(g_final*255), int(b_final*255)])        
 
     @staticmethod
     def triangleSet2D(vertices, colors):
@@ -706,11 +735,20 @@ class GL:
         shininess = colors["shininess"]
         
         lista_pontos = []
+        vertices = []       # Sem transformar (Iluminacao)
         for i in range(0, len(point), 3):
+            vertices.append(np.array([point[i], point[i + 1], point[i + 2]]))
             lista_pontos.append(GL.transform_3Dto2D(point[i], point[i + 1], point[i + 2]))
+
+        # Índices diretos (cada 3 pontos = um triângulo)
+        indices = list(range(len(lista_pontos)))
+
+        # Calcula as normais por vertice (Iluminacao)
+        normais = GL.calcula_normais(vertices, indices)
             
         for i in range(0, len(lista_pontos), 3):
-            GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b, transparencia=transparency, diffuseColor=diffuseColor, specularColor=specularColor, shininess=shininess)
+            GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b, transparencia=transparency, diffuseColor=diffuseColor, specularColor=specularColor, shininess=shininess,
+                            vertexNormals=normais[i:(i+3)])
 
     @staticmethod
     def viewpoint(position, orientation, fieldOfView):
@@ -758,6 +796,15 @@ class GL:
             [0, 0, - (GL.far + GL.near)/(GL.far - GL.near), -2 * GL.far * GL.near / (GL.far - GL.near)],
             [0, 0, -1, 0]
         ])
+
+        # Direção da câmera no espaço do mundo
+        forward = np.array([0, 0, -1, 0])   # vetor para frente em coords locais
+        cam_dir_world = GL.Mr_c @ forward
+        GL.cam_direction = (cam_dir_world[0], cam_dir_world[1], cam_dir_world[2])
+
+        # Se o headlight está ligado, a luz segue a câmera
+        if GL.hasLight:
+            GL.light_direction = GL.cam_direction
 
     @staticmethod
     def transform_in(translation, scale, rotation):
@@ -905,6 +952,13 @@ class GL:
         specularColor = colors["specularColor"]
         shininess = colors["shininess"]
 
+        # Vertices dos pontos para calculo das normais (Iluminacao)
+        vertices = [np.array([point[i], point[i+1], point[i+2]], dtype=float)
+            for i in range(0, len(point), 3)]
+
+        # Calcula normais por vertice (Iluminacao)
+        normais = GL.calcula_normais(vertices, index)
+
         count_reset = 0
         for i in range(len(index)):
             if (i + 2) == len(index):
@@ -920,12 +974,18 @@ class GL:
                     idx_1 = index[i+2]
                     idx_2 = index[i+1]
 
+                # Pontos
                 p0 = GL.transform_3Dto2D(point[3*idx_0], point[3*idx_0 + 1], point[3*idx_0 + 2])
                 p1 = GL.transform_3Dto2D(point[3*idx_1], point[3*idx_1 + 1], point[3*idx_1 + 2])
                 p2 = GL.transform_3Dto2D(point[3*idx_2], point[3*idx_2 + 1], point[3*idx_2 + 2])
 
+                # Normais de cada vertice (Iluminacao)
+                n0 = normais[idx_0]
+                n1 = normais[idx_1]
+                n2 = normais[idx_2]
+
                 GL.draw_triangle([p0, p1, p2], r, g, b,  diffuseColor=diffuseColor, specularColor=specularColor,
-                    shininess=shininess, transparencia=transparency, emissiveColor=emissiveColor)
+                    shininess=shininess, transparencia=transparency, emissiveColor=emissiveColor, vertexNormals=[n0, n1, n2])
                 count_reset = 0
 
     @staticmethod
@@ -1176,6 +1236,8 @@ class GL:
             GL.ambientIntensity = 0.0               # ambientIntensity
             GL.light_direction = GL.cam_direction   # Direção da Headlight
 
+            GL.headlight = True                     # Para saber que vem da headlight
+
     @staticmethod
     def directionalLight(ambientIntensity, color, intensity, direction):
         """Luz direcional ou paralela."""
@@ -1188,7 +1250,7 @@ class GL:
 
         if intensity > 0:
             GL.hasLight = True
-            GL.light_ambientIntensity = ambientIntensity
+            GL.ambientIntensity = ambientIntensity
             GL.light_color = (color[0], color[1], color[2])
             GL.light_intensity = intensity
             GL.light_direction = (direction[0], direction[1], direction[2])
