@@ -1141,7 +1141,7 @@ class GL:
                 p1 = conexoes[1]
 
                 # Faz o Triangulo
-                r, g, b = diffuseColor # ANTONIO TIRA ISSO AQUI DPS, BOTEI SO PRA TESTAR
+                # r, g, b = diffuseColor # ANTONIO TIRA ISSO AQUI DPS, BOTEI SO PRA TESTAR
                 GL.draw_triangle([p0, p1, p2], r, g, b, colorPerVertex=colorPerVertex, vertexColors=con_color, hasTexture=hasTexture, textCoords=con_text,
                     textShape=img_shape, textImg=image, diffuseColor=diffuseColor, specularColor=specularColor,
                     shininess=shininess, transparencia=transparency, emissiveColor=emissiveColor)
