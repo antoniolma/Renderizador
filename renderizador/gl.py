@@ -383,25 +383,26 @@ class GL:
 
         return mipMaps
     
-    def calcula_normais(lista_pontos, indices):
+    def calcula_normais(lista_pontos, indices, indexed):
         # Passa para np.array (fica mais facil)
         lista_pontos = [np.array(v[:3], dtype=float) for v in lista_pontos]
         normais = [np.array([0.0, 0.0, 0.0]) for _ in lista_pontos]
-        
+
         for i in range(0, len(indices), 3):
-            i0, i1, i2 = indices[i], indices[i+1], indices[i+2]
-            p0, p1, p2 = lista_pontos[i0], lista_pontos[i1], lista_pontos[i2]
+            if len(indices)-i > 2 and ( (indexed and indices[i] != -1) or (not indexed) ):
+                i0, i1, i2 = indices[i], indices[i+1], indices[i+2]
+                p0, p1, p2 = lista_pontos[i0], lista_pontos[i1], lista_pontos[i2]
 
-            v0 = p1 - p0
-            v1 = p2 - p0
-            n = np.cross(v0, v1)
+                v0 = p1 - p0
+                v1 = p2 - p0
+                n = np.cross(v0, v1)
 
-            if np.linalg.norm(n) > 0:
-                n = n / np.linalg.norm(n)
+                if np.linalg.norm(n) > 0:
+                    n = n / np.linalg.norm(n)
 
-            normais[i0] += n
-            normais[i1] += n
-            normais[i2] += n
+                normais[i0] += n
+                normais[i1] += n
+                normais[i2] += n
 
         # Normaliza cada normal acumulada
         normais = [n/np.linalg.norm(n) if np.linalg.norm(n) > 0 else n
@@ -451,10 +452,7 @@ class GL:
                 
                 gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r_pnt*255, g_pnt*255, b_pnt*255])
             else:
-                try:
-                    gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r*255, g*255, b*255])
-                except:
-                    pass
+                gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r*255, g*255, b*255])
 
         # for i in range(len(lista_pontos)):
             # GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
@@ -480,8 +478,8 @@ class GL:
         if GL.hasLight:
             vertex_colors = []
             for i, p in enumerate(lista_pontos):  
-                # Vetor Normal
                 if vertexNormals:
+                    # Vetor Normal
                     N = vertexNormals[i]
                     N /= np.linalg.norm(N)
 
@@ -538,19 +536,18 @@ class GL:
                             w2 = lista_pontos[2][3]
                             listaW = (w0, w1, w2)
 
-                            if vertexNormals:
-                                if GL.hasLight:
-                                    # Z para interpolação de cores
-                                    z = 1/(alpha/w0 + beta/w1 + gama/w2)
+                            if GL.hasLight and vertexNormals:
+                                # Z para interpolação de cores
+                                z = 1/(alpha/w0 + beta/w1 + gama/w2)
 
-                                    # Pega as cores dos vertices
-                                    (r_v0, g_v0, b_v0) = vertex_colors[0]
-                                    (r_v1, g_v1, b_v1) = vertex_colors[1]
-                                    (r_v2, g_v2, b_v2) = vertex_colors[2]
+                                # Pega as cores dos vertices
+                                (r_v0, g_v0, b_v0) = vertex_colors[0]
+                                (r_v1, g_v1, b_v1) = vertex_colors[1]
+                                (r_v2, g_v2, b_v2) = vertex_colors[2]
 
-                                    r = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
-                                    g = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
-                                    b = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
+                                r = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
+                                g = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
+                                b = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
                             
                             if hasTexture:
                                 pesos = (alpha, beta, gama)
@@ -749,7 +746,7 @@ class GL:
         indices = list(range(len(lista_pontos)))
 
         # Calcula as normais por vertice (Iluminacao)
-        normais = GL.calcula_normais(vertices, indices)
+        normais = GL.calcula_normais(vertices, indices, indexed=0)
             
         for i in range(0, len(lista_pontos), 3):
             GL.draw_triangle(lista_pontos[i:(i+3)], r, g, b, transparencia=transparency, diffuseColor=diffuseColor, specularColor=specularColor, shininess=shininess,
@@ -962,7 +959,7 @@ class GL:
             for i in range(0, len(point), 3)]
 
         # Calcula normais por vertice (Iluminacao)
-        normais = GL.calcula_normais(vertices, index)
+        normais = GL.calcula_normais(vertices, index, indexed=1)
 
         count_reset = 0
         for i in range(len(index)):
