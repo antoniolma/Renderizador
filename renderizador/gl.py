@@ -451,7 +451,10 @@ class GL:
                 
                 gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r_pnt*255, g_pnt*255, b_pnt*255])
             else:
-                gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                try:
+                    gpu.GPU.draw_pixel([round(x) * GL.supersampling_size, round(y) * GL.supersampling_size], gpu.GPU.RGB8, [r*255, g*255, b*255])
+                except:
+                    pass
 
         # for i in range(len(lista_pontos)):
             # GL.draw_line(lista_pontos[i][0], lista_pontos[i][1], lista_pontos[(i+1)%3][0], lista_pontos[(i+1)%3][1], r, g, b)
@@ -478,42 +481,43 @@ class GL:
             vertex_colors = []
             for i, p in enumerate(lista_pontos):  
                 # Vetor Normal
-                N = vertexNormals[i]
-                N /= np.linalg.norm(N)
+                if vertexNormals:
+                    N = vertexNormals[i]
+                    N /= np.linalg.norm(N)
 
-                # Vetor L (contrario a direcao da luz)
-                if GL.headlight:
-                    L = -np.array(GL.light_direction)
-                else:
-                    L = np.array(GL.light_direction)
-                L = L / np.linalg.norm(L)
+                    # Vetor L (contrario a direcao da luz)
+                    if GL.headlight:
+                        L = -np.array(GL.light_direction)
+                    else:
+                        L = np.array(GL.light_direction)
+                    L = L / np.linalg.norm(L)
 
-                # Vetor v (contrario a camera)
-                v = -np.array(GL.cam_direction)
-                v = v / np.linalg.norm(v)
+                    # Vetor v (contrario a camera)
+                    v = -np.array(GL.cam_direction)
+                    v = v / np.linalg.norm(v)
 
-                # Produto escalar
-                NL = np.dot(N, L)
+                    # Produto escalar
+                    NL = np.dot(N, L)
 
-                # Bissetriz
-                Lv_Lv = (L + v) / np.linalg.norm(L + v)
-                NLv_Lv = np.dot(N, Lv_Lv)
+                    # Bissetriz
+                    Lv_Lv = (L + v) / np.linalg.norm(L + v)
+                    NLv_Lv = np.dot(N, Lv_Lv)
 
-                # Calcula a cor do pixel
-                Irgb = []
-                for i in range(3):
-                    ambient_i = diffuseColor[i]*max(0.2,GL.ambientIntensity)
-                    diffuse_i = diffuseColor[i]*GL.light_intensity*NL
-                    specular_i = 0.0
-                    if NL > 0:
-                        specular_i = specularColor[i]*GL.light_intensity*NLv_Lv**(shininess*128)
-                    # print('_is: ', ambient_i, diffuse_i, specular_i)
+                    # Calcula a cor do pixel
+                    Irgb = []
+                    for i in range(3):
+                        ambient_i = diffuseColor[i]*max(0.2,GL.ambientIntensity)
+                        diffuse_i = diffuseColor[i]*GL.light_intensity*NL
+                        specular_i = 0.0
+                        if NL > 0:
+                            specular_i = specularColor[i]*GL.light_intensity*NLv_Lv**(shininess*128)
+                        # print('_is: ', ambient_i, diffuse_i, specular_i)
 
-                    soma_i = GL.light_color[i] * (ambient_i+diffuse_i+specular_i)
-                    # print('soma_i: ', soma_i)
-                    Irgb.append(emissiveColor[i] + soma_i)
-                # Salva as cores do ponto
-                vertex_colors.append(Irgb)
+                        soma_i = GL.light_color[i] * (ambient_i+diffuse_i+specular_i)
+                        # print('soma_i: ', soma_i)
+                        Irgb.append(emissiveColor[i] + soma_i)
+                    # Salva as cores do ponto
+                    vertex_colors.append(Irgb)
 
 
         for w in range(max(int(min_x), 0), min(round(max_x) + 1, GL.width)):
@@ -534,18 +538,19 @@ class GL:
                             w2 = lista_pontos[2][3]
                             listaW = (w0, w1, w2)
 
-                            if GL.hasLight:
-                                # Z para interpolação de cores
-                                z = 1/(alpha/w0 + beta/w1 + gama/w2)
+                            if vertexNormals:
+                                if GL.hasLight:
+                                    # Z para interpolação de cores
+                                    z = 1/(alpha/w0 + beta/w1 + gama/w2)
 
-                                # Pega as cores dos vertices
-                                (r_v0, g_v0, b_v0) = vertex_colors[0]
-                                (r_v1, g_v1, b_v1) = vertex_colors[1]
-                                (r_v2, g_v2, b_v2) = vertex_colors[2]
+                                    # Pega as cores dos vertices
+                                    (r_v0, g_v0, b_v0) = vertex_colors[0]
+                                    (r_v1, g_v1, b_v1) = vertex_colors[1]
+                                    (r_v2, g_v2, b_v2) = vertex_colors[2]
 
-                                r = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
-                                g = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
-                                b = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
+                                    r = max(0, min(1, z * (alpha*r_v0/w0 + beta*r_v1/w1 + gama*r_v2/w2)))
+                                    g = max(0, min(1, z * (alpha*g_v0/w0 + beta*g_v1/w1 + gama*g_v2/w2)))
+                                    b = max(0, min(1, z * (alpha*b_v0/w0 + beta*b_v1/w1 + gama*b_v2/w2)))
                             
                             if hasTexture:
                                 pesos = (alpha, beta, gama)
